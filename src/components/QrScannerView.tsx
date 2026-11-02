@@ -57,6 +57,13 @@ export const QrScannerView: React.FC<QrScannerViewProps> = ({
             return;
           }
           lastScanRef.current = { text: decodedText, time: now };
+          if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+            try {
+              navigator.vibrate([80, 40, 120]);
+            } catch {
+              // Игнорируем ошибку вибрации на неподдерживаемых устройствах
+            }
+          }
           onCodeScanned(decodedText);
         },
         () => {

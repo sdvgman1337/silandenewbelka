@@ -216,6 +216,25 @@ export function normalizeScannedId(rawText: string): string {
 }
 
 /**
+ * Вызывает тактильную отдачу (Haptic Feedback) через Web Vibration API при успешном сканировании
+ */
+export function triggerScanHapticFeedback(
+  pattern: number | number[] = [80, 40, 120],
+  nav?: { vibrate?: (pattern: number | number[]) => boolean }
+): boolean {
+  try {
+    const targetNav =
+      nav ?? (typeof navigator !== 'undefined' ? navigator : undefined);
+    if (targetNav && typeof targetNav.vibrate === 'function') {
+      return targetNav.vibrate(pattern);
+    }
+  } catch {
+    // Игнорируем ошибки на устройствах без поддержки вибрации
+  }
+  return false;
+}
+
+/**
  * Обрабатывает сканирование QR-кода
  */
 export function processQrScan(
@@ -235,6 +254,7 @@ export function processQrScan(
   }
 
   if (currentFoundIds.includes(matched.id)) {
+    triggerScanHapticFeedback(70);
     return {
       status: 'already_found',
       location: matched,
@@ -248,6 +268,10 @@ export function processQrScan(
   const isCompletedNow =
     currentFoundIds.length < TOTAL_LOCATIONS &&
     updatedFoundIds.length === TOTAL_LOCATIONS;
+
+  triggerScanHapticFeedback(
+    isCompletedNow ? [100, 50, 100, 50, 200] : [80, 40, 120]
+  );
 
   return {
     status: 'found_new',
@@ -328,6 +352,45 @@ export function loadFoundIdsFromStorage(
   }
 }
 
+export const ONBOARDING_STORAGE_KEY = 'park_quest_onboarding_seen_v1';
+
+/**
+ * Проверяет, нужно ли показать онбординг (только при первом открытии и при 0 открытых локаций)
+ */
+export function shouldShowOnboarding(
+  foundIds: string[],
+  storage?: Pick<Storage, 'getItem'>
+): boolean {
+  if (foundIds.length > 0) {
+    return false;
+  }
+  try {
+    const target =
+      storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
+    if (!target) return true;
+    const seen = target.getItem(ONBOARDING_STORAGE_KEY);
+    return seen !== '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Отмечает онбординг как просмотренный в localStorage
+ */
+export function markOnboardingSeen(
+  storage?: Pick<Storage, 'setItem'>
+): void {
+  try {
+    const target =
+      storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
+    if (!target) return;
+    target.setItem(ONBOARDING_STORAGE_KEY, '1');
+  } catch {
+    // Ignore storage write errors
+  }
+}
+
 /**
  * Сохраняет массив найденных ID в localStorage
  */
@@ -344,3 +407,4 @@ export function saveFoundIdsToStorage(
     // Ignore storage write errors
   }
 }
+

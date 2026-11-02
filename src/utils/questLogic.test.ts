@@ -8,6 +8,9 @@ import {
   calculateProgress,
   loadFoundIdsFromStorage,
   saveFoundIdsToStorage,
+  triggerScanHapticFeedback,
+  shouldShowOnboarding,
+  markOnboardingSeen,
 } from './questLogic';
 
 test('QUEST_LOCATIONS has 20 unique points with valid lat/lng park coordinates', () => {
@@ -73,3 +76,42 @@ test('localStorage persistence saves and restores found IDs accurately', () => {
   const restored = loadFoundIdsFromStorage(storage);
   assert.deepEqual(restored, ['point_02', 'point_10']);
 });
+
+test('triggerScanHapticFeedback invokes navigator.vibrate with pattern and handles unsupported environments', () => {
+  const vibratedPatterns: Array<number | number[]> = [];
+  const mockNavigator = {
+    vibrate: (pattern: number | number[]) => {
+      vibratedPatterns.push(pattern);
+      return true;
+    },
+  };
+
+  const result = triggerScanHapticFeedback([80, 40, 120], mockNavigator);
+  assert.equal(result, true);
+  assert.deepEqual(vibratedPatterns, [[80, 40, 120]]);
+
+  // Gracefully returns false when vibrate is missing
+  assert.equal(triggerScanHapticFeedback(100, {}), false);
+});
+
+test('shouldShowOnboarding returns true only on first open when 0 locations are found', () => {
+  const mem: Record<string, string> = {};
+  const storage = {
+    getItem: (k: string) => mem[k] ?? null,
+    setItem: (k: string, v: string) => {
+      mem[k] = v;
+    },
+  };
+
+  // First open with 0 found locations -> show onboarding
+  assert.equal(shouldShowOnboarding([], storage), true);
+
+  // First open but user already has >= 1 found location -> do NOT show onboarding
+  assert.equal(shouldShowOnboarding(['point_01'], storage), false);
+
+  // After marking onboarding as seen -> do NOT show onboarding even with 0 locations
+  markOnboardingSeen(storage);
+  assert.equal(shouldShowOnboarding([], storage), false);
+});
+
+
