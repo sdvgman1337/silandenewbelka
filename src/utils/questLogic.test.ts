@@ -18,8 +18,8 @@ test('QUEST_LOCATIONS has 20 unique points with valid lat/lng park coordinates',
   assert.equal(ids.size, 20);
 
   for (const loc of QUEST_LOCATIONS) {
-    assert.ok(loc.lat > 55.7 && loc.lat < 55.8);
-    assert.ok(loc.lng > 37.58 && loc.lng < 37.62);
+    assert.ok(loc.lat > 60.37 && loc.lat < 60.39);
+    assert.ok(loc.lng > 30.26 && loc.lng < 30.28);
     assert.ok(loc.title.length > 0);
   }
 });
