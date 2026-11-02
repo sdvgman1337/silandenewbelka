@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Aura Resort Quest — QR-квест базы отдыха</title>
+  <meta name="description" content="Интерактивное веб-приложение для прохождения QR-квеста на территории базы отдыха с картой локаций, встроенным сканером и системой наград." />
+  <meta property="og:title" content="Aura Resort Quest — QR-квест базы отдыха" />
+  <meta property="og:description" content="Интерактивное веб-приложение для прохождения QR-квеста на территории базы отдыха с картой локаций, встроенным сканером и системой наград." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" />
+  <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      /* Проход 2: Единая нейтральная шкала Warm Stone & Ink */
+      --bg-canvas: #f6f5f0;
+      --bg-surface: #ffffff;
+      --bg-subtle: #efece6;
+      --bg-active: #e6e2da;
+      --text-primary: #141413;
+      --text-secondary: #575653;
+      --text-muted: #8a8884;
+      --border-hairline: rgba(20, 20, 19, 0.08);
+      --border-strong: rgba(20, 20, 19, 0.16);
+
+      /* Единый акцентный цвет с контрастом > 4.5:1 к белому тексту */
+      --accent-primary: #15803d;
+      --accent-hover: #166534;
+      --accent-selected: #c2410c;
+      --danger-primary: #b91c1c;
+
+      /* Проход 7: Математически согласованные радиусы (4px сетка) */
+      --radius-panel: 16px;
+      --radius-card: 12px;
+      --radius-control: 8px;
+
+      /* Проход 9: Единая кривая анимации */
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 400;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      min-height: 100dvh;
+      overflow-x: hidden;
+      line-height: 1.5;
+      font-variant-numeric: tabular-nums;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-shell {
+      width: 100%;
+      min-height: 100dvh;
+      padding-bottom: 80px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Компактные верхние контролы поверх карты без шапки и заголовков */
+    .top-bar-wrapper {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 400;
+      pointer-events: none;
+      padding: 16px;
+    }
+
+    .top-bar {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      pointer-events: none;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-control);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      pointer-events: auto;
+      transition: background-color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .brand-mark:hover {
+      background: #ffffff;
+      border-color: var(--border-strong);
+    }
+
+    .brand-mark:active {
+      transform: scale(0.97);
+    }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      pointer-events: auto;
+    }
+
+    .status-readout {
+      height: 36px;
+      padding: 0 12px;
+      border-radius: var(--radius-control);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border-hairline);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 4px;
+      background-color: var(--accent-primary);
+      flex-shrink: 0;
+    }
+
+    .header-prize-btn {
+      height: 36px;
+      padding: 0 12px;
+      border-radius: var(--radius-control);
+      border: 1px solid transparent;
+      background: var(--accent-primary);
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .header-prize-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .header-prize-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* Вкладки */
+    .tab-container {
+      display: none;
+    }
+
+    .tab-container.active {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    /* КАРТА НА ВСЮ ШИРИНУ И ДО ВЕРХНЕГО КРАЯ ЭКРАНА */
+    .map-edge-stage {
+      position: relative;
+      width: 100%;
+      height: 62dvh;
+      min-height: 440px;
+      max-height: 720px;
+      background: #e9e5dc;
+      border-bottom: 1px solid var(--border-hairline);
+      overflow: hidden;
+    }
+
+    #quest-map {
+      width: 100%;
+      height: 100%;
+    }
+
+    #quest-map canvas {
+      filter: saturate(0.82) contrast(0.98) sepia(0.06);
+    }
+
+    /* Переопределение контролов OpenLayers под сетку 4px и спокойный хром */
+    .ol-control {
+      background: transparent !important;
+      padding: 0 !important;
+    }
+
+    .ol-zoom {
+      top: auto !important;
+      left: auto !important;
+      right: 16px !important;
+      bottom: 16px !important;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .ol-zoom button {
+      width: 36px !important;
+      height: 36px !important;
+      margin: 0 !important;
+      border-radius: var(--radius-control) !important;
+      border: 1px solid var(--border-hairline) !important;
+      background: rgba(255, 255, 255, 0.94) !important;
+      color: var(--text-primary) !important;
+      font-family: 'Inter', sans-serif !important;
+      font-size: 18px !important;
+      font-weight: 400 !important;
+      line-height: 1 !important;
+      cursor: pointer !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: background-color 0.16s var(--ease-out), transform 0.16s var(--ease-out) !important;
+    }
+
+    .ol-zoom button:hover {
+      background: #ffffff !important;
+    }
+
+    .ol-zoom button:active {
+      transform: scale(0.97) !important;
+    }
+
+    .ol-attribution {
+      right: 64px !important;
+      bottom: 16px !important;
+      background: rgba(255, 255, 255, 0.85) !important;
+      border: 1px solid var(--border-hairline) !important;
+      border-radius: 4px !important;
+      padding: 2px 6px !important;
+      font-size: 11px !important;
+      color: var(--text-muted) !important;
+    }
+
+    .ol-attribution ul {
+      font-size: 11px !important;
+      color: var(--text-secondary) !important;
+      text-shadow: none !important;
+    }
+
+    .ol-attribution button {
+      display: none !important;
+    }
+
+    /* Кнопка обзора всего парка поверх карты (только иконка) */
+    .map-hud-bottom-left {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+    }
+
+    .map-control-btn {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: var(--radius-control);
+      border: 1px solid var(--border-hairline);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .map-control-btn:hover {
+      background: #ffffff;
+      border-color: var(--border-strong);
+    }
+
+    .map-control-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* Маркеры OpenLayers (Overlay) */
+    .quest-map-pin {
+      width: 36px;
+      height: 44px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .quest-map-pin-inner {
+      position: relative;
+      width: 36px;
+      height: 44px;
+      display: flex;
+      justify-content: center;
+      transition: transform 0.16s var(--ease-out);
+    }
+
+    .quest-map-pin:active .quest-map-pin-inner {
+      transform: scale(0.97);
+    }
+
+    .quest-map-pin-head {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-control);
+      background: var(--accent-primary);
+      border: 2px solid #ffffff;
+      color: #ffffff;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-variant-numeric: tabular-nums;
+      transition: background-color 0.16s var(--ease-out);
+    }
+
+    .quest-map-pin-tail {
+      position: absolute;
+      bottom: 6px;
+      width: 8px;
+      height: 8px;
+      background: var(--accent-primary);
+      transform: rotate(45deg);
+      border-right: 2px solid #ffffff;
+      border-bottom: 2px solid #ffffff;
+      transition: background-color 0.16s var(--ease-out);
+    }
+
+    .quest-map-pin.is-selected .quest-map-pin-head,
+    .quest-map-pin.is-selected .quest-map-pin-tail {
+      background: var(--accent-selected);
+    }
+
+    /* Попап OpenLayers */
+    .ol-popup-card {
+      position: relative;
+      min-width: 220px;
+      max-width: 280px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-card);
+      padding: 12px 32px 12px 12px;
+      color: var(--text-primary);
+      pointer-events: auto;
+    }
+
+    .ol-popup-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), color 0.16s var(--ease-out);
+    }
+
+    .ol-popup-close:hover {
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+    }
+
+    .ol-popup-meta {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ol-popup-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.35;
+    }
+
+    /* Контентная часть под картой — на всю ширину с максимумом 1440px */
+    .workspace-container {
+      width: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+
+    @media (min-width: 768px) {
+      .workspace-container {
+        padding: 32px 24px;
+      }
+    }
+
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (min-width: 960px) {
+      .workspace-grid {
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: 24px;
+      }
+    }
+
+    .surface-panel {
+      min-width: 0;
+      width: 100%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-hairline);
+      border-radius: var(--radius-panel);
+      padding: 24px;
+    }
+
+    /* Уведомление о сканировании */
+    .scan-toast-banner {
+      max-width: 1440px;
+      margin: 16px auto 0;
+      padding: 0 16px;
+    }
+
+    .scan-toast {
+      padding: 12px 16px;
+      border-radius: var(--radius-card);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Секция прогресса */
+    .section-kicker {
+      display: block;
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .progress-header-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .progress-heading {
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-percent-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-subtle);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 4px;
+      background: var(--accent-primary);
+      transition: width 0.32s var(--ease-out);
+    }
+
+    .progress-caption {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .claim-prize-btn {
+      width: 100%;
+      height: 44px;
+      margin-top: 16px;
+      padding: 0 16px;
+      border-radius: var(--radius-control);
+      border: 1px solid transparent;
+      background: var(--accent-primary);
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .claim-prize-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .claim-prize-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* Пустое состояние и реестр найденных точек */
+    .zero-state-box {
+      padding: 24px 0 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .zero-state-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .zero-state-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      max-width: 520px;
+      line-height: 1.5;
+    }
+
+    .found-list-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-hairline);
+    }
+
+    .found-list-heading {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .found-list-hint {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    .found-cards-grid {
+      list-style: none;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    @media (min-width: 640px) {
+      .found-cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 12px;
+      }
+    }
+
+    .found-location-card {
+      width: 100%;
+      min-height: 64px;
+      padding: 12px 16px;
+      border-radius: var(--radius-card);
+      border: 1px solid var(--border-hairline);
+      background: var(--bg-canvas);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .found-location-card:hover {
+      background: var(--bg-subtle);
+      border-color: var(--border-strong);
+    }
+
+    .found-location-card:active {
+      transform: scale(0.97);
+    }
+
+    /* Проход 7: Активное состояние — тонкий сдвиг поверхности и линия без градиентов */
+    .found-location-card.selected {
+      background: var(--bg-subtle);
+      border-color: var(--text-primary);
+    }
+
+    .found-card-index {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-control);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .found-location-card.selected .found-card-index {
+      background: var(--text-primary);
+      border-color: var(--text-primary);
+      color: #ffffff;
+    }
+
+    .found-card-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .found-card-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .found-card-sub {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Вкладка сканера */
+    .scanner-layout {
+      width: 100%;
+      max-width: 640px;
+      margin: 80px auto 0;
+      padding: 24px 16px;
+    }
+
+    .scanner-head {
+      margin-bottom: 16px;
+    }
+
+    .scanner-heading {
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-top: 4px;
+    }
+
+    .scanner-sub {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .camera-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      max-height: 384px;
+      margin: 0 auto 16px;
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      background: #141413;
+      border: 1px solid var(--border-strong);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #qr-reader {
+      width: 100%;
+      height: 100%;
+      border: none !important;
+    }
+
+    #qr-reader video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+    }
+
+    #qr-reader__dashboard,
+    #qr-reader__status_span {
+      display: none !important;
+    }
+
+    .camera-idle-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      background: #141413;
+      color: #ffffff;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 8px;
+    }
+
+    .camera-idle-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #ffffff;
+    }
+
+    .camera-idle-desc {
+      font-size: 13px;
+      color: #a8a6a1;
+      margin-bottom: 8px;
+      max-width: 280px;
+    }
+
+    /* Кнопки (Проход 7: радиус 8px, нажатие scale 0.97) */
+    .btn-primary {
+      height: 44px;
+      padding: 0 16px;
+      border-radius: var(--radius-control);
+      border: 1px solid transparent;
+      background: var(--accent-primary);
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.97);
+    }
+
+    .btn-danger {
+      width: 100%;
+      height: 44px;
+      padding: 0 16px;
+      border-radius: var(--radius-control);
+      border: 1px solid transparent;
+      background: var(--danger-primary);
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: opacity 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .btn-danger:active {
+      transform: scale(0.97);
+    }
+
+    .btn-secondary {
+      width: 100%;
+      height: 44px;
+      padding: 0 16px;
+      border-radius: var(--radius-control);
+      border: 1px solid var(--border-hairline);
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-active);
+      border-color: var(--border-strong);
+    }
+
+    .btn-secondary:active {
+      transform: scale(0.97);
+    }
+
+    .camera-alert {
+      padding: 12px 16px;
+      border-radius: var(--radius-control);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 400;
+      margin-bottom: 12px;
+    }
+
+    /* Нижняя навигационная панель (Проход 1: компактные навигационные кнопки) */
+    .bottom-nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 500;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-top: 1px solid var(--border-hairline);
+    }
+
+    .bottom-nav-grid {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .bottom-tab-button {
+      height: 40px;
+      min-width: 160px;
+      padding: 0 16px;
+      border-radius: var(--radius-control);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .bottom-tab-button:hover {
+      color: var(--text-primary);
+      background: var(--bg-subtle);
+    }
+
+    .bottom-tab-button:active {
+      transform: scale(0.97);
+    }
+
+    .bottom-tab-button.active {
+      background: var(--bg-subtle);
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    /* Модальные окна */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(20, 20, 19, 0.48);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-dialog-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-panel);
+      padding: 24px;
+      text-align: left;
+    }
+
+    .modal-icon-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-control);
+      margin-bottom: 16px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-hairline);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overline {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .modal-heading {
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .modal-body-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .promo-box {
+      padding: 16px;
+      border-radius: var(--radius-card);
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-strong);
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .promo-box-label {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+
+    .promo-box-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 24px;
+      font-weight: 500;
+      color: var(--text-primary);
+      user-select: all;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .modal-btn-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Верхние плавающие контролы поверх полноширинной карты (без заголовка и подзаголовка) -->
+    <header class="top-bar-wrapper">
+      <div class="top-bar">
+        <button id="secret-reset-trigger" class="brand-mark" type="button" aria-label="Меню маршрута">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
+            <line x1="9" y1="3" x2="9" y2="18"></line>
+            <line x1="15" y1="6" x2="15" y2="21"></line>
+          </svg>
+        </button>
+
+        <div class="header-meta">
+          <div id="header-counter-wrap" class="status-readout">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="header-counter">0 / 20</span>
+          </div>
+          <button id="header-prize-button" class="header-prize-btn hidden" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 12 20 22 4 22 4 12"></polyline>
+              <rect x="2" y="7" width="20" height="5"></rect>
+              <line x1="12" y1="22" x2="12" y2="7"></line>
+              <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+              <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+            </svg>
+            <span>Промокод</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- Вкладка Карта: во всю ширину и от самого верхнего края экрана -->
+      <div id="view-map" class="tab-container active">
+        <section id="map-stage" class="map-edge-stage" aria-label="Интерактивная карта территории">
+          <div id="quest-map" data-testid="openlayers-map-container"></div>
+
+          <!-- Всплывающая карточка выбранной локации на карте OpenLayers -->
+          <div id="ol-popup" class="ol-popup-card hidden" role="dialog" aria-label="Информация о локации">
+            <button id="ol-popup-closer" class="ol-popup-close" type="button" aria-label="Закрыть карточку">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+            <div id="ol-popup-meta" class="ol-popup-meta"></div>
+            <div id="ol-popup-title" class="ol-popup-title"></div>
+          </div>
+
+          <div class="map-hud-bottom-left">
+            <button id="btn-center-map" class="map-control-btn" type="button" aria-label="Показать весь парк" title="Показать весь парк">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+                <path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
+                <path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
+                <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </section>
+
+        <div id="scan-toast-wrapper" class="scan-toast-banner hidden">
+          <div id="scan-toast" class="scan-toast" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="workspace-container">
+          <div class="workspace-grid">
+            <!-- Левая панель: Сводка маршрута -->
+            <section class="surface-panel" aria-label="Сводка маршрута">
+              <span class="section-kicker">Маршрутный лист</span>
+              <div class="progress-header-row">
+                <h2 id="progress-counter-heading" class="progress-heading">Найдено 0 из 20</h2>
+                <span id="progress-percentage" class="progress-percent-value">0%</span>
+              </div>
+
+              <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0">
+                <div id="progress-bar-fill" class="progress-fill"></div>
+              </div>
+
+              <p class="progress-caption">
+                Отмечайте контрольные таблички с QR-кодами во время прогулки по парку. Каждая открытая точка сохраняется на карте и в полевом журнале
+              </p>
+
+              <button id="btn-open-reward-banner" class="claim-prize-btn hidden" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                  <rect x="2" y="7" width="20" height="5"></rect>
+                  <line x1="12" y1="22" x2="12" y2="7"></line>
+                  <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+                  <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                </svg>
+                <span>Открыть призовой промокод</span>
+              </button>
+            </section>
+
+            <!-- Правая панель: Журнал открытых локаций -->
+            <section class="surface-panel" aria-label="Журнал найденных локаций">
+              <div id="empty-found-container" class="zero-state-box">
+                <h3 class="zero-state-title">Пока не открыто ни одной локации</h3>
+                <p class="zero-state-desc">
+                  Находите таблички с QR-кодами на территории парка и сканируйте их камерой смартфона — каждая найденная точка сразу отобразится на карте
+                </p>
+                <button id="btn-go-scanner" class="btn-primary" type="button">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                    <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                    <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                    <rect x="7" y="7" width="10" height="10" rx="1"></rect>
+                  </svg>
+                  <span>Сканировать первый QR-код</span>
+                </button>
+              </div>
+
+              <div id="found-list-section" class="hidden">
+                <div class="found-list-header">
+                  <h3 id="found-list-title" class="found-list-heading">Найденные локации</h3>
+                  <span class="found-list-hint">Нажмите на строку для перехода к точке на карте</span>
+                </div>
+                <ul id="found-locations-ul" class="found-cards-grid"></ul>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <!-- Вкладка Сканер -->
+      <div id="view-scanner" class="tab-container">
+        <div class="scanner-layout">
+          <section class="surface-panel" aria-label="Сканер QR-кодов">
+            <div class="scanner-head">
+              <span class="section-kicker">Оптический сканер</span>
+              <h2 class="scanner-heading">Наведите камеру на QR-код</h2>
+              <p class="scanner-sub">Поместите табличку с кодом в центр видоискателя для автоматического считывания</p>
+            </div>
+
+            <div class="camera-stage">
+              <div id="qr-reader"></div>
+              <div id="camera-idle-placeholder" class="camera-idle-overlay">
+                <h3 class="camera-idle-title">Камера готова к работе</h3>
+                <p class="camera-idle-desc">Разрешите доступ к камере смартфона для сканирования контрольных точек</p>
+                <button id="btn-enable-camera" class="btn-primary" type="button">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                  </svg>
+                  <span>Включить камеру</span>
+                </button>
+              </div>
+            </div>
+
+            <div id="camera-error-alert" class="camera-alert hidden" role="alert"></div>
+
+            <button id="btn-pause-camera" class="btn-secondary hidden" type="button">
+              <span>Приостановить камеру</span>
+            </button>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- Нижняя панель навигации -->
+    <nav class="bottom-nav-bar" aria-label="Основная навигация">
+      <div class="bottom-nav-grid">
+        <button id="tab-btn-map" class="bottom-tab-button active" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
+            <line x1="9" y1="3" x2="9" y2="18"></line>
+            <line x1="15" y1="6" x2="15" y2="21"></line>
+          </svg>
+          <span>Карта</span>
+        </button>
+
+        <button id="tab-btn-scanner" class="bottom-tab-button" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+            <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+            <rect x="7" y="7" width="10" height="10" rx="1"></rect>
+          </svg>
+          <span>Сканировать</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Модальное окно завершения маршрута -->
+    <div id="victory-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="victory-heading">
+      <div class="modal-dialog-card">
+        <div class="modal-icon-badge" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+            <path d="M4 22h16"></path>
+            <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+            <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+          </svg>
+        </div>
+        <div class="modal-overline">Собрано 20 из 20 локаций</div>
+        <h2 id="victory-heading" class="modal-heading">Маршрут полностью пройден</h2>
+        <p class="modal-body-text">
+          Вы открыли все 20 контрольных точек на территории парка. Покажите этот код администратору на стойке приема гостей для получения скидки
+        </p>
+
+        <div class="promo-box">
+          <span class="promo-box-label">Призовой промокод</span>
+          <strong id="promo-code-text" class="promo-box-code">FAMILY2026</strong>
+        </div>
+
+        <div class="modal-btn-stack">
+          <button id="btn-copy-promo" class="btn-primary" type="button">Скопировать промокод</button>
+          <button id="btn-close-victory" class="btn-secondary" type="button">Вернуться к карте</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Сервисное окно сброса прогресса -->
+    <div id="reset-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reset-heading">
+      <div class="modal-dialog-card">
+        <div class="modal-icon-badge" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+        </div>
+        <div class="modal-overline">Сервисное меню</div>
+        <h2 id="reset-heading" class="modal-heading">Сбросить прогресс маршрута</h2>
+        <p class="modal-body-text">
+          Все сохраненные отметки на этом устройстве будут удалены, и прохождение начнется с нуля (0 из 20)
+        </p>
+
+        <div class="modal-btn-stack">
+          <button id="btn-confirm-reset" class="btn-danger" type="button">Сбросить прогресс</button>
+          <button id="btn-cancel-reset" class="btn-secondary" type="button">Отмена</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PROMO_CODE = "FAMILY2026";
+    const STORAGE_KEY = "park_quest_found_ids_v2";
+    const LEGACY_STORAGE_KEYS = ["resort_quest_found_points_v1", "quest_found_ids"];
+    // Координаты центра парка [широта (lat), долгота (lng)]
+    const DEFAULT_MAP_CENTER = [55.7285, 37.6015];
+    const DEFAULT_MAP_ZOOM = 15.2;
+
+    const QUEST_LOCATIONS = [
+      { id: "point_01", number: 1,  title: "Главный фонтан на центральной аллее", zone: "Центральный партер", lat: 55.7312, lng: 37.6034 },
+      { id: "point_02", number: 2,  title: "Лодочная пристань у Голицынского пруда", zone: "Набережная и пруды", lat: 55.7294, lng: 37.5998 },
+      { id: "point_03", number: 3,  title: "Ажурная беседка у розария", zone: "Цветочный сад", lat: 55.7301, lng: 37.6012 },
+      { id: "point_04", number: 4,  title: "Детская площадка «Морской корабль»", zone: "Семейная зона", lat: 55.7282, lng: 37.6025 },
+      { id: "point_05", number: 5,  title: "Смотровая терраса у Андреевского моста", zone: "Набережная и пруды", lat: 55.7265, lng: 37.5968 },
+      { id: "point_06", number: 6,  title: "Летний кинотеатр на газоне", zone: "Центральный партер", lat: 55.7306, lng: 37.6052 },
+      { id: "point_07", number: 7,  title: "Павильон проката веломобилей", zone: "Активный отдых", lat: 55.7321, lng: 37.6048 },
+      { id: "point_08", number: 8,  title: "Каменный гротик у малого пруда", zone: "Нескучный лес", lat: 55.7273, lng: 37.5985 },
+      { id: "point_09", number: 9,  title: "Оранжерея с тропическими растениями", zone: "Цветочный сад", lat: 55.7261, lng: 37.5999 },
+      { id: "point_10", number: 10, title: "Деревянный мостик над лесным оврагом", zone: "Нескучный лес", lat: 55.7239, lng: 37.5962 },
+      { id: "point_11", number: 11, title: "Беседка «Ротонда 800-летия»", zone: "Набережная и пруды", lat: 55.7248, lng: 37.5924 },
+      { id: "point_12", number: 12, title: "Лесной чайный домик", zone: "Семейная зона", lat: 55.7232, lng: 37.5947 },
+      { id: "point_13", number: 13, title: "Веревочный городок среди сосен", zone: "Активный отдых", lat: 55.7254, lng: 37.5978 },
+      { id: "point_14", number: 14, title: "Домик с кормушками для белок и фазанов", zone: "Живой уголок", lat: 55.7224, lng: 37.5931 },
+      { id: "point_15", number: 15, title: "Шахматный павильон под липами", zone: "Нескучный лес", lat: 55.7241, lng: 37.5989 },
+      { id: "point_16", number: 16, title: "Солнечные часы на южной поляне", zone: "Цветочный сад", lat: 55.7289, lng: 37.6041 },
+      { id: "point_17", number: 17, title: "Зеленый амфитеатр у воды", zone: "Набережная и пруды", lat: 55.7278, lng: 37.5951 },
+      { id: "point_18", number: 18, title: "Аллея вековых дубов", zone: "Нескучный лес", lat: 55.7218, lng: 37.5958 },
+      { id: "point_19", number: 19, title: "Семейное кафе «Лесная поляна»", zone: "Семейная зона", lat: 55.7269, lng: 37.6019 },
+      { id: "point_20", number: 20, title: "Главные арки у центрального входа", zone: "Центральный партер", lat: 55.7328, lng: 37.6039 }
+    ];
+
+    let foundIds = [];
+    let selectedLocationId = null;
+    let questMap = null;
+    let popupOverlay = null;
+    const markersIndex = new Map();
+    let html5QrInstance = null;
+    let lastScanRecord = { code: "", timestamp: 0 };
+
+    const SECRET_TAP_COUNT_REQUIRED = 5;
+    const SECRET_TAP_WINDOW_MS = 2500;
+    let secretTapTimestamps = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("promo-code-text").textContent = PROMO_CODE;
+
+      foundIds = readStoredIds();
+      if (foundIds.length > 0) {
+        selectedLocationId = foundIds[foundIds.length - 1];
+      }
+
+      initializeOpenLayersMap();
+      syncFoundPinsOnMap();
+      updateProgressAndFoundListUI();
+      attachUIEvents();
+
+      if (selectedLocationId && questMap) {
+        const lastLoc = QUEST_LOCATIONS.find((loc) => loc.id === selectedLocationId);
+        if (lastLoc) {
+          focusMapOnLocation(lastLoc, false);
+        }
+      }
+
+      if (foundIds.length >= QUEST_LOCATIONS.length) {
+        showVictoryModalWithConfetti();
+      }
+    });
+
+    function scrollScreenToMap() {
+      const mapStage = document.getElementById("map-stage");
+      if (mapStage && typeof mapStage.scrollIntoView === "function") {
+        mapStage.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function readStoredIds() {
+      try {
+        let raw = localStorage.getItem(STORAGE_KEY);
+
+        if (!raw) {
+          for (const legacyKey of LEGACY_STORAGE_KEYS) {
+            const legacyRaw = localStorage.getItem(legacyKey);
+            if (legacyRaw) {
+              raw = legacyRaw;
+              break;
+            }
+          }
+        }
+
+        if (!raw) return [];
+
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+
+        const normalizedIds = [];
+        for (const item of parsed) {
+          if (typeof item !== "string") continue;
+          const cleaned = item.trim().toLowerCase();
+          const matched = QUEST_LOCATIONS.find(
+            (loc) => loc.id.toLowerCase() === cleaned || cleaned.includes(loc.id.toLowerCase())
+          );
+          if (matched && !normalizedIds.includes(matched.id)) {
+            normalizedIds.push(matched.id);
+          }
+        }
+
+        if (normalizedIds.length > 0) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedIds));
+        }
+
+        return normalizedIds;
+      } catch (err) {
+        return [];
+      }
+    }
+
+    function persistFoundIds() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(foundIds));
+      } catch (err) {}
+    }
+
+    function clearAllProgress() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        for (const legacyKey of LEGACY_STORAGE_KEYS) {
+          localStorage.removeItem(legacyKey);
+        }
+      } catch (err) {}
+
+      foundIds = [];
+      selectedLocationId = null;
+
+      closeMapPopup();
+      syncFoundPinsOnMap();
+      updateProgressAndFoundListUI();
+
+      document.getElementById("victory-modal").classList.add("hidden");
+      document.getElementById("reset-modal").classList.add("hidden");
+
+      if (questMap) {
+        questMap.getView().animate({
+          center: ol.proj.fromLonLat([DEFAULT_MAP_CENTER[1], DEFAULT_MAP_CENTER[0]]),
+          zoom: DEFAULT_MAP_ZOOM,
+          duration: 600
+        });
+      }
+
+      switchActiveTab("map");
+      displayToast("Прогресс маршрута сброшен");
+    }
+
+    function initializeOpenLayersMap() {
+      if (typeof ol === "undefined") return;
+
+      const osmSource = new ol.source.OSM({
+        attributions: "© OpenStreetMap"
+      });
+
+      const baseLayer = new ol.layer.Tile({
+        source: osmSource
+      });
+
+      const popupEl = document.getElementById("ol-popup");
+      popupOverlay = new ol.Overlay({
+        element: popupEl,
+        positioning: "bottom-center",
+        offset: [0, -48],
+        stopEvent: true
+      });
+
+      questMap = new ol.Map({
+        target: "quest-map",
+        layers: [baseLayer],
+        overlays: [popupOverlay],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([DEFAULT_MAP_CENTER[1], DEFAULT_MAP_CENTER[0]]),
+          zoom: DEFAULT_MAP_ZOOM,
+          minZoom: 12,
+          maxZoom: 19
+        })
+      });
+
+      document.getElementById("ol-popup-closer").addEventListener("click", () => {
+        closeMapPopup();
+      });
+
+      setTimeout(() => questMap.updateSize(), 120);
+    }
+
+    function closeMapPopup() {
+      const popupEl = document.getElementById("ol-popup");
+      if (popupEl) popupEl.classList.add("hidden");
+      if (popupOverlay) popupOverlay.setPosition(undefined);
+    }
+
+    function openMapPopupForLocation(loc) {
+      if (!popupOverlay) return;
+      const popupEl = document.getElementById("ol-popup");
+      document.getElementById("ol-popup-meta").textContent = `Точка #${String(loc.number).padStart(2, "0")} · ${loc.zone}`;
+      document.getElementById("ol-popup-title").textContent = loc.title;
+      popupEl.classList.remove("hidden");
+      popupOverlay.setPosition(ol.proj.fromLonLat([loc.lng, loc.lat]));
+    }
+
+    function focusMapOnLocation(loc, animate = true) {
+      if (!questMap || !loc) return;
+      const view = questMap.getView();
+      if (typeof view.cancelAnimations === "function") {
+        view.cancelAnimations();
+      }
+      const targetCoord = ol.proj.fromLonLat([loc.lng, loc.lat]);
+      if (animate) {
+        view.animate({
+          center: targetCoord,
+          zoom: 16.5,
+          duration: 500
+        });
+      } else {
+        view.setCenter(targetCoord);
+        view.setZoom(16.2);
+      }
+      openMapPopupForLocation(loc);
+    }
+
+    function createPinElement(number, isHighlighted) {
+      const root = document.createElement("div");
+      root.className = "quest-map-pin" + (isHighlighted ? " is-selected" : "");
+      root.innerHTML = `
+        <div class="quest-map-pin-inner">
+          <div class="quest-map-pin-head">${String(number).padStart(2, "0")}</div>
+          <div class="quest-map-pin-tail"></div>
+        </div>
+      `;
+      return root;
+    }
+
+    function getFoundLocationsInOrder() {
+      const lookup = new Map(QUEST_LOCATIONS.map((loc) => [loc.id, loc]));
+      const ordered = [];
+      for (let i = foundIds.length - 1; i >= 0; i--) {
+        const found = lookup.get(foundIds[i]);
+        if (found) ordered.push(found);
+      }
+      return ordered;
+    }
+
+    function clearMapMarkers() {
+      if (!questMap) return;
+      markersIndex.forEach((entry) => {
+        questMap.removeOverlay(entry.overlay);
+      });
+      markersIndex.clear();
+    }
+
+    function highlightSelectedMarkerOnMap() {
+      markersIndex.forEach((entry, id) => {
+        entry.element.classList.toggle("is-selected", id === selectedLocationId);
+      });
+    }
+
+    function syncFoundPinsOnMap() {
+      if (!questMap || typeof ol === "undefined") return;
+      clearMapMarkers();
+
+      const foundLocations = getFoundLocationsInOrder();
+      foundLocations.forEach((loc) => {
+        const isSelected = loc.id === selectedLocationId;
+        const el = createPinElement(loc.number, isSelected);
+
+        const markerOverlay = new ol.Overlay({
+          position: ol.proj.fromLonLat([loc.lng, loc.lat]),
+          positioning: "bottom-center",
+          element: el,
+          stopEvent: false
+        });
+
+        questMap.addOverlay(markerOverlay);
+
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          selectedLocationId = loc.id;
+          highlightSelectedMarkerOnMap();
+          updateProgressAndFoundListUI();
+          focusMapOnLocation(loc, true);
+        });
+
+        markersIndex.set(loc.id, { overlay: markerOverlay, element: el, loc });
+      });
+    }
+
+    function updateProgressAndFoundListUI() {
+      const total = QUEST_LOCATIONS.length;
+      const foundCount = foundIds.length;
+      const percentage = Math.round((foundCount / total) * 100);
+      const isComplete = foundCount >= total;
+
+      document.getElementById("header-counter").textContent = `${foundCount} / ${total}`;
+      document.getElementById("progress-counter-heading").textContent = `Найдено ${foundCount} из ${total}`;
+      document.getElementById("progress-percentage").textContent = `${percentage}%`;
+      document.getElementById("progress-bar-fill").style.width = `${percentage}%`;
+      document.querySelector(".progress-track").setAttribute("aria-valuenow", String(foundCount));
+
+      document.getElementById("header-counter-wrap").classList.toggle("hidden", isComplete);
+      document.getElementById("header-prize-button").classList.toggle("hidden", !isComplete);
+      document.getElementById("btn-open-reward-banner").classList.toggle("hidden", !isComplete);
+
+      const emptyContainer = document.getElementById("empty-found-container");
+      const listSection = document.getElementById("found-list-section");
+      const listUl = document.getElementById("found-locations-ul");
+
+      if (foundCount === 0) {
+        emptyContainer.classList.remove("hidden");
+        listSection.classList.add("hidden");
+        listUl.innerHTML = "";
+        return;
+      }
+
+      emptyContainer.classList.add("hidden");
+      listSection.classList.remove("hidden");
+      document.getElementById("found-list-title").textContent = `Найденные локации (${foundCount})`;
+
+      listUl.innerHTML = "";
+      const foundLocations = getFoundLocationsInOrder();
+      foundLocations.forEach((loc) => {
+        const li = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "found-location-card" + (loc.id === selectedLocationId ? " selected" : "");
+        button.innerHTML = `
+          <div class="found-card-index">${String(loc.number).padStart(2, "0")}</div>
+          <div class="found-card-body">
+            <div class="found-card-name">${loc.title}</div>
+            <div class="found-card-sub">${loc.zone}</div>
+          </div>
+        `;
+        button.addEventListener("click", () => {
+          selectedLocationId = loc.id;
+          highlightSelectedMarkerOnMap();
+          updateProgressAndFoundListUI();
+          scrollScreenToMap();
+          focusMapOnLocation(loc, true);
+        });
+        li.appendChild(button);
+        listUl.appendChild(li);
+      });
+    }
+
+    function processScannedQrText(rawText) {
+      const cleaned = (rawText || "").trim();
+      const matched = QUEST_LOCATIONS.find(
+        (loc) => loc.id.toLowerCase() === cleaned.toLowerCase() || cleaned.toLowerCase().includes(loc.id.toLowerCase())
+      );
+
+      if (!matched) {
+        displayToast("Код не относится к точкам маршрута");
+        return;
+      }
+
+      if (foundIds.includes(matched.id)) {
+        selectedLocationId = matched.id;
+        highlightSelectedMarkerOnMap();
+        updateProgressAndFoundListUI();
+        switchActiveTab("map");
+        scrollScreenToMap();
+        focusMapOnLocation(matched, true);
+        displayToast(`Локация «${matched.title}» уже отмечена в журнале`);
+        return;
+      }
+
+      foundIds.push(matched.id);
+      persistFoundIds();
+
+      selectedLocationId = matched.id;
+      syncFoundPinsOnMap();
+      updateProgressAndFoundListUI();
+      switchActiveTab("map");
+      scrollScreenToMap();
+      focusMapOnLocation(matched, true);
+
+      if (foundIds.length >= QUEST_LOCATIONS.length) {
+        showVictoryModalWithConfetti();
+      } else {
+        displayToast(`Открыта точка #${String(matched.number).padStart(2, "0")}: ${matched.title}`);
+      }
+    }
+
+    function showVictoryModalWithConfetti() {
+      if (typeof confetti === "function") {
+        try {
+          confetti({
+            particleCount: 80,
+            spread: 70,
+            origin: { y: 0.55 },
+            colors: ["#15803d", "#c2410c", "#141413", "#8a8884"]
+          });
+        } catch (err) {}
+      }
+      document.getElementById("victory-modal").classList.remove("hidden");
+    }
+
+    function displayToast(message) {
+      const wrapper = document.getElementById("scan-toast-wrapper");
+      const toastEl = document.getElementById("scan-toast");
+      toastEl.textContent = message;
+      wrapper.classList.remove("hidden");
+      clearTimeout(window.__questToastTimeout);
+      window.__questToastTimeout = setTimeout(() => {
+        wrapper.classList.add("hidden");
+      }, 4000);
+    }
+
+    async function startLiveCameraScanner() {
+      const alertBox = document.getElementById("camera-error-alert");
+      alertBox.classList.add("hidden");
+
+      try {
+        await stopLiveCameraScanner();
+        document.getElementById("camera-idle-placeholder").classList.add("hidden");
+        document.getElementById("btn-pause-camera").classList.remove("hidden");
+
+        html5QrInstance = new Html5Qrcode("qr-reader");
+        await html5QrInstance.start(
+          { facingMode: "environment" },
+          { fps: 12, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 },
+          (decodedText) => {
+            const now = Date.now();
+            if (decodedText === lastScanRecord.code && now - lastScanRecord.timestamp < 2500) {
+              return;
+            }
+            lastScanRecord = { code: decodedText, timestamp: now };
+            processScannedQrText(decodedText);
+          },
+          () => {}
+        );
+      } catch (err) {
+        document.getElementById("camera-idle-placeholder").classList.remove("hidden");
+        document.getElementById("btn-pause-camera").classList.add("hidden");
+        alertBox.textContent = "Для сканирования QR-кодов необходим доступ к камере. Разрешите использование камеры в настройках браузера и нажмите «Включить камеру»";
+        alertBox.classList.remove("hidden");
+      }
+    }
+
+    async function stopLiveCameraScanner() {
+      if (html5QrInstance) {
+        try {
+          const state = html5QrInstance.getState();
+          if (state === 2 || state === 3) {
+            await html5QrInstance.stop();
+          }
+          html5QrInstance.clear();
+        } catch (err) {}
+        html5QrInstance = null;
+      }
+      document.getElementById("camera-idle-placeholder").classList.remove("hidden");
+      document.getElementById("btn-pause-camera").classList.add("hidden");
+    }
+
+    function switchActiveTab(tabName) {
+      const showMap = tabName === "map";
+      document.getElementById("view-map").classList.toggle("active", showMap);
+      document.getElementById("view-scanner").classList.toggle("active", !showMap);
+      document.getElementById("tab-btn-map").classList.toggle("active", showMap);
+      document.getElementById("tab-btn-scanner").classList.toggle("active", !showMap);
+
+      if (showMap) {
+        stopLiveCameraScanner();
+        if (questMap) {
+          setTimeout(() => questMap.updateSize(), 80);
+        }
+      } else {
+        startLiveCameraScanner();
+      }
+    }
+
+    function handleSecretResetTap() {
+      const now = Date.now();
+      secretTapTimestamps = secretTapTimestamps.filter((t) => now - t <= SECRET_TAP_WINDOW_MS);
+      secretTapTimestamps.push(now);
+
+      if (secretTapTimestamps.length >= SECRET_TAP_COUNT_REQUIRED) {
+        secretTapTimestamps = [];
+        document.getElementById("reset-modal").classList.remove("hidden");
+      }
+    }
+
+    function attachUIEvents() {
+      document.getElementById("tab-btn-map").addEventListener("click", () => switchActiveTab("map"));
+      document.getElementById("tab-btn-scanner").addEventListener("click", () => switchActiveTab("scanner"));
+      document.getElementById("btn-go-scanner").addEventListener("click", () => switchActiveTab("scanner"));
+
+      document.getElementById("btn-enable-camera").addEventListener("click", startLiveCameraScanner);
+      document.getElementById("btn-pause-camera").addEventListener("click", stopLiveCameraScanner);
+
+      document.getElementById("btn-center-map").addEventListener("click", () => {
+        closeMapPopup();
+        if (questMap) {
+          questMap.getView().animate({
+            center: ol.proj.fromLonLat([DEFAULT_MAP_CENTER[1], DEFAULT_MAP_CENTER[0]]),
+            zoom: DEFAULT_MAP_ZOOM,
+            duration: 600
+          });
+        }
+      });
+
+      document.getElementById("btn-open-reward-banner").addEventListener("click", showVictoryModalWithConfetti);
+      document.getElementById("header-prize-button").addEventListener("click", showVictoryModalWithConfetti);
+      document.getElementById("btn-close-victory").addEventListener("click", () => {
+        document.getElementById("victory-modal").classList.add("hidden");
+      });
+
+      document.getElementById("btn-copy-promo").addEventListener("click", (e) => {
+        navigator.clipboard.writeText(PROMO_CODE);
+        const btn = e.currentTarget;
+        btn.textContent = "Промокод скопирован";
+        setTimeout(() => {
+          btn.textContent = "Скопировать промокод";
+        }, 2200);
+      });
+
+      document.getElementById("secret-reset-trigger").addEventListener("click", handleSecretResetTap);
+      document.getElementById("btn-confirm-reset").addEventListener("click", clearAllProgress);
+      document.getElementById("btn-cancel-reset").addEventListener("click", () => {
+        document.getElementById("reset-modal").classList.add("hidden");
+      });
+    }
+
+    // Экспорт функции сканирования для быстрой проверки в интеграционных сценариях
+    window.__simulateQuestQrScan = processScannedQrText;
+  </script>
+</body>
+</html>

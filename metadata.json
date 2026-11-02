@@ -1,0 +1,6 @@
+{
+  "name": "Aura Resort Quest — QR-квест базы отдыха",
+  "description": "Интерактивное веб-приложение для прохождения QR-квеста на территории базы отдыха с картой локаций, встроенным сканером и системой наград.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
