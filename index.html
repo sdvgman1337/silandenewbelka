@@ -423,48 +423,30 @@
       line-height: 1.35;
     }
 
-    /* Контентная часть под картой — на всю ширину с максимумом 1440px */
+    /* Контентная часть под картой — на весь экран с небольшими боковыми отступами (12px) */
     .workspace-container {
       width: 100%;
-      max-width: 1440px;
-      margin: 0 auto;
-      padding: 24px 16px;
-    }
-
-    @media (min-width: 768px) {
-      .workspace-container {
-        padding: 32px 24px;
-      }
-    }
-
-    .workspace-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 24px;
-      align-items: start;
-    }
-
-    @media (min-width: 960px) {
-      .workspace-grid {
-        grid-template-columns: 360px minmax(0, 1fr);
-        gap: 24px;
-      }
+      max-width: 100%;
+      margin: 0;
+      padding: 12px;
     }
 
     .surface-panel {
       min-width: 0;
       width: 100%;
+      max-width: 100%;
+      overflow: hidden;
       background: var(--bg-surface);
       border: 1px solid var(--border-hairline);
       border-radius: var(--radius-panel);
-      padding: 24px;
+      padding: 16px;
     }
 
     /* Уведомление о сканировании */
     .scan-toast-banner {
-      max-width: 1440px;
-      margin: 16px auto 0;
-      padding: 0 16px;
+      width: 100%;
+      margin: 12px 0 0;
+      padding: 0 12px;
     }
 
     .scan-toast {
@@ -480,7 +462,6 @@
       gap: 12px;
     }
 
-    /* Секция прогресса */
     .section-kicker {
       display: block;
       font-size: 12px;
@@ -489,56 +470,10 @@
       margin-bottom: 4px;
     }
 
-    .progress-header-row {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .progress-heading {
-      font-size: 20px;
-      font-weight: 500;
-      color: var(--text-primary);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .progress-percent-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .progress-track {
-      width: 100%;
-      height: 8px;
-      border-radius: 4px;
-      background: var(--bg-subtle);
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-
-    .progress-fill {
-      height: 100%;
-      width: 0%;
-      border-radius: 4px;
-      background: var(--accent-primary);
-      transition: width 0.32s var(--ease-out);
-    }
-
-    .progress-caption {
-      font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.5;
-    }
-
     .claim-prize-btn {
       width: 100%;
       height: 44px;
-      margin-top: 16px;
+      margin-bottom: 16px;
       padding: 0 16px;
       border-radius: var(--radius-control);
       border: 1px solid transparent;
@@ -565,7 +500,7 @@
 
     /* Пустое состояние и реестр найденных точек */
     .zero-state-box {
-      padding: 24px 0 4px;
+      padding: 8px 0 4px;
       display: flex;
       flex-direction: column;
       align-items: flex-start;
@@ -581,16 +516,17 @@
     .zero-state-desc {
       font-size: 14px;
       color: var(--text-secondary);
-      max-width: 520px;
+      max-width: 640px;
       line-height: 1.5;
     }
 
     .found-list-header {
       display: flex;
+      flex-wrap: wrap;
       align-items: baseline;
       justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 8px 12px;
+      margin-bottom: 12px;
       padding-bottom: 12px;
       border-bottom: 1px solid var(--border-hairline);
     }
@@ -610,22 +546,32 @@
 
     .found-cards-grid {
       list-style: none;
+      width: 100%;
+      max-width: 100%;
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       gap: 8px;
     }
 
-    @media (min-width: 640px) {
+    @media (min-width: 768px) {
       .found-cards-grid {
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 8px;
       }
+    }
+
+    .found-cards-grid > li {
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
     }
 
     .found-location-card {
       width: 100%;
-      min-height: 64px;
-      padding: 12px 16px;
+      max-width: 100%;
+      min-width: 0;
+      min-height: 60px;
+      padding: 12px;
       border-radius: var(--radius-card);
       border: 1px solid var(--border-hairline);
       background: var(--bg-canvas);
@@ -634,6 +580,7 @@
       gap: 12px;
       text-align: left;
       font-family: inherit;
+      overflow: hidden;
       cursor: pointer;
       transition: background-color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
     }
@@ -647,7 +594,6 @@
       transform: scale(0.97);
     }
 
-    /* Проход 7: Активное состояние — тонкий сдвиг поверхности и линия без градиентов */
     .found-location-card.selected {
       background: var(--bg-subtle);
       border-color: var(--text-primary);
@@ -677,8 +623,10 @@
     }
 
     .found-card-body {
-      flex: 1;
+      flex: 1 1 0%;
       min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       gap: 2px;
@@ -688,9 +636,10 @@
       font-size: 14px;
       font-weight: 500;
       color: var(--text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      line-height: 1.35;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .found-card-sub {
@@ -1096,63 +1045,44 @@
         </div>
 
         <div class="workspace-container">
-          <div class="workspace-grid">
-            <!-- Левая панель: Сводка маршрута -->
-            <section class="surface-panel" aria-label="Сводка маршрута">
-              <span class="section-kicker">Маршрутный лист</span>
-              <div class="progress-header-row">
-                <h2 id="progress-counter-heading" class="progress-heading">Найдено 0 из 20</h2>
-                <span id="progress-percentage" class="progress-percent-value">0%</span>
-              </div>
+          <!-- Полноширинная плашка журнала открытых локаций с небольшими отступами по бокам -->
+          <section class="surface-panel" aria-label="Журнал найденных локаций">
+            <button id="btn-open-reward-banner" class="claim-prize-btn hidden" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                <rect x="2" y="7" width="20" height="5"></rect>
+                <line x1="12" y1="22" x2="12" y2="7"></line>
+                <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+                <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+              </svg>
+              <span>Открыть призовой промокод</span>
+            </button>
 
-              <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0">
-                <div id="progress-bar-fill" class="progress-fill"></div>
-              </div>
-
-              <p class="progress-caption">
-                Отмечайте контрольные таблички с QR-кодами во время прогулки по парку. Каждая открытая точка сохраняется на карте и в полевом журнале
+            <div id="empty-found-container" class="zero-state-box">
+              <h3 class="zero-state-title">Пока не открыто ни одной локации</h3>
+              <p class="zero-state-desc">
+                Находите таблички с QR-кодами на территории парка и сканируйте их камерой смартфона — каждая найденная точка сразу отобразится на карте
               </p>
-
-              <button id="btn-open-reward-banner" class="claim-prize-btn hidden" type="button">
+              <button id="btn-go-scanner" class="btn-primary" type="button">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="20 12 20 22 4 22 4 12"></polyline>
-                  <rect x="2" y="7" width="20" height="5"></rect>
-                  <line x1="12" y1="22" x2="12" y2="7"></line>
-                  <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
-                  <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                  <rect x="7" y="7" width="10" height="10" rx="1"></rect>
                 </svg>
-                <span>Открыть призовой промокод</span>
+                <span>Сканировать первый QR-код</span>
               </button>
-            </section>
+            </div>
 
-            <!-- Правая панель: Журнал открытых локаций -->
-            <section class="surface-panel" aria-label="Журнал найденных локаций">
-              <div id="empty-found-container" class="zero-state-box">
-                <h3 class="zero-state-title">Пока не открыто ни одной локации</h3>
-                <p class="zero-state-desc">
-                  Находите таблички с QR-кодами на территории парка и сканируйте их камерой смартфона — каждая найденная точка сразу отобразится на карте
-                </p>
-                <button id="btn-go-scanner" class="btn-primary" type="button">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
-                    <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
-                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
-                    <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
-                    <rect x="7" y="7" width="10" height="10" rx="1"></rect>
-                  </svg>
-                  <span>Сканировать первый QR-код</span>
-                </button>
+            <div id="found-list-section" class="hidden">
+              <div class="found-list-header">
+                <h3 id="found-list-title" class="found-list-heading">Найденные локации</h3>
+                <span class="found-list-hint">Нажмите на строку для перехода к точке на карте</span>
               </div>
-
-              <div id="found-list-section" class="hidden">
-                <div class="found-list-header">
-                  <h3 id="found-list-title" class="found-list-heading">Найденные локации</h3>
-                  <span class="found-list-hint">Нажмите на строку для перехода к точке на карте</span>
-                </div>
-                <ul id="found-locations-ul" class="found-cards-grid"></ul>
-              </div>
-            </section>
-          </div>
+              <ul id="found-locations-ul" class="found-cards-grid"></ul>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -1565,14 +1495,9 @@
     function updateProgressAndFoundListUI() {
       const total = QUEST_LOCATIONS.length;
       const foundCount = foundIds.length;
-      const percentage = Math.round((foundCount / total) * 100);
       const isComplete = foundCount >= total;
 
       document.getElementById("header-counter").textContent = `${foundCount} / ${total}`;
-      document.getElementById("progress-counter-heading").textContent = `Найдено ${foundCount} из ${total}`;
-      document.getElementById("progress-percentage").textContent = `${percentage}%`;
-      document.getElementById("progress-bar-fill").style.width = `${percentage}%`;
-      document.querySelector(".progress-track").setAttribute("aria-valuenow", String(foundCount));
 
       document.getElementById("header-counter-wrap").classList.toggle("hidden", isComplete);
       document.getElementById("header-prize-button").classList.toggle("hidden", !isComplete);
