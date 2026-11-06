@@ -5,6 +5,9 @@ import {
   TOTAL_LOCATIONS,
   processQrScan,
   getFoundLocations,
+  getChronologicalFoundLocations,
+  calculateRouteDistanceMeters,
+  formatRouteDistance,
   calculateProgress,
   loadFoundIdsFromStorage,
   saveFoundIdsToStorage,
@@ -113,5 +116,25 @@ test('shouldShowOnboarding returns true only on first open when 0 locations are 
   markOnboardingSeen(storage);
   assert.equal(shouldShowOnboarding([], storage), false);
 });
+
+test('calculateRouteDistanceMeters and formatRouteDistance compute walking statistics accurately', () => {
+  assert.equal(calculateRouteDistanceMeters([]), 0);
+  assert.equal(calculateRouteDistanceMeters(['point_01']), 0);
+
+  const chrono = getChronologicalFoundLocations(['point_01', 'point_02', 'point_03']);
+  assert.deepEqual(
+    chrono.map((c) => c.id),
+    ['point_01', 'point_02', 'point_03']
+  );
+
+  const twoPointDist = calculateRouteDistanceMeters(['point_01', 'point_02']);
+  assert.ok(twoPointDist > 200 && twoPointDist < 500);
+
+  assert.equal(formatRouteDistance(0), '0 м');
+  assert.equal(formatRouteDistance(425), '425 м');
+  assert.equal(formatRouteDistance(1250), '1.25 км');
+  assert.equal(formatRouteDistance(2000), '2 км');
+});
+
 
 

@@ -8,6 +8,15 @@
   <meta property="og:title" content="Aura Resort Quest — QR-квест базы отдыха" />
   <meta property="og:description" content="Интерактивное веб-приложение для прохождения QR-квеста на территории базы отдыха с картой локаций, встроенным сканером и системой наград." />
 
+  <meta name="theme-color" content="#f6f5f0" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Силандэ" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -16,6 +25,7 @@
   <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 
   <style>
     :root {
@@ -220,8 +230,12 @@
       height: 100%;
     }
 
-    #quest-map canvas {
+    #quest-map:not(.is-satellite) canvas {
       filter: saturate(0.82) contrast(0.98) sepia(0.06);
+    }
+
+    #quest-map.is-satellite canvas {
+      filter: none;
     }
 
     /* Переопределение контролов OpenLayers под сетку 4px и спокойный хром */
@@ -268,27 +282,10 @@
     }
 
     .ol-attribution {
-      right: 64px !important;
-      bottom: 16px !important;
-      background: rgba(255, 255, 255, 0.85) !important;
-      border: 1px solid var(--border-hairline) !important;
-      border-radius: 4px !important;
-      padding: 2px 6px !important;
-      font-size: 11px !important;
-      color: var(--text-muted) !important;
-    }
-
-    .ol-attribution ul {
-      font-size: 11px !important;
-      color: var(--text-secondary) !important;
-      text-shadow: none !important;
-    }
-
-    .ol-attribution button {
       display: none !important;
     }
 
-    /* Кнопка обзора всего парка поверх карты (только иконка) */
+    /* Контролы в левом нижнем углу карты (обзор парка + переключение Схема/Спутник) */
     .map-hud-bottom-left {
       position: absolute;
       bottom: 16px;
@@ -296,6 +293,7 @@
       z-index: 20;
       display: flex;
       align-items: center;
+      gap: 8px;
     }
 
     .map-control-btn {
@@ -322,6 +320,40 @@
 
     .map-control-btn:active {
       transform: scale(0.97);
+    }
+
+    .map-layer-toggle-btn {
+      height: 36px;
+      padding: 0 12px;
+      border-radius: var(--radius-control);
+      border: 1px solid var(--border-hairline);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .map-layer-toggle-btn:hover {
+      background: #ffffff;
+      border-color: var(--border-strong);
+    }
+
+    .map-layer-toggle-btn:active {
+      transform: scale(0.97);
+    }
+
+    .map-layer-toggle-btn.is-active-satellite {
+      background: var(--text-primary);
+      border-color: var(--text-primary);
+      color: #ffffff;
     }
 
     /* Маркеры OpenLayers (Overlay) с плавным появлением и откликом */
@@ -1049,6 +1081,279 @@
       gap: 8px;
     }
 
+    /* Статистика маршрута (пройденное расстояние) */
+    .route-stats-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 16px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      border-radius: var(--radius-control);
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-hairline);
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .route-stats-metric {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-primary);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .route-line-swatch {
+      width: 20px;
+      height: 2px;
+      background: repeating-linear-gradient(
+        to right,
+        var(--accent-primary) 0,
+        var(--accent-primary) 5px,
+        transparent 5px,
+        transparent 9px
+      );
+      display: inline-block;
+    }
+
+    /* Памятный сертификат в модальном окне победы */
+    .modal-dialog-card.modal-wide {
+      max-width: 440px;
+      max-height: 90dvh;
+      overflow-y: auto;
+    }
+
+    .cert-builder-box {
+      margin-bottom: 16px;
+      padding: 12px;
+      border-radius: var(--radius-card);
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-hairline);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .cert-input-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .cert-team-input {
+      width: 100%;
+      height: 36px;
+      padding: 0 12px;
+      border-radius: var(--radius-control);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .cert-team-input:focus {
+      border-color: var(--accent-primary);
+    }
+
+    .cert-preview-wrap {
+      width: 100%;
+      border-radius: var(--radius-control);
+      overflow: hidden;
+      border: 1px solid var(--border-hairline);
+      background: #ffffff;
+      display: flex;
+      justify-content: center;
+    }
+
+    #certificate-canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .cert-actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .cert-actions-row .btn-primary,
+    .cert-actions-row .btn-secondary {
+      height: 36px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    /* Печатный генератор QR-табличек для администрации */
+    .admin-qr-modal-card {
+      width: 100%;
+      max-width: 960px;
+      max-height: 90dvh;
+      overflow-y: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-panel);
+      padding: 20px;
+      animation: dialogScaleIn 0.26s var(--ease-out) both;
+    }
+
+    .admin-qr-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 16px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border-hairline);
+    }
+
+    .admin-qr-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .admin-qr-actions .btn-primary,
+    .admin-qr-actions .btn-secondary {
+      width: auto;
+      height: 36px;
+      padding: 0 14px;
+      font-size: 13px;
+    }
+
+    .admin-qr-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .admin-qr-plaque {
+      padding: 16px 12px;
+      border-radius: var(--radius-card);
+      border: 1px solid var(--border-strong);
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 8px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .admin-qr-plaque-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .admin-qr-box {
+      width: 132px;
+      height: 132px;
+      padding: 6px;
+      background: #ffffff;
+      border: 1px solid var(--border-hairline);
+      border-radius: var(--radius-control);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .admin-qr-box svg {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+
+    .admin-qr-plaque-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+
+    .admin-qr-plaque-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* PWA и индикатор офлайн-режима */
+    .offline-pill {
+      height: 36px;
+      padding: 0 10px;
+      border-radius: var(--radius-control);
+      background: rgba(20, 20, 19, 0.92);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pwa-install-top-btn {
+      height: 36px;
+      padding: 0 10px;
+      border-radius: var(--radius-control);
+      border: 1px solid var(--border-hairline);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: background-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .pwa-install-top-btn:hover {
+      background: #ffffff;
+      border-color: var(--border-strong);
+    }
+
+    @media print {
+      body {
+        background: #ffffff !important;
+      }
+      .top-bar-wrapper,
+      main,
+      .bottom-nav-bar,
+      #victory-modal,
+      #reset-modal,
+      #onboarding-modal,
+      .admin-qr-toolbar {
+        display: none !important;
+      }
+      #admin-qr-modal {
+        position: static !important;
+        display: block !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+      }
+      .admin-qr-modal-card {
+        max-width: 100% !important;
+        max-height: none !important;
+        overflow: visible !important;
+        border: none !important;
+        padding: 0 !important;
+      }
+      .admin-qr-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 12px !important;
+      }
+    }
+
     /* Профессиональные ключевые кадры анимаций (только transform и opacity) */
     @keyframes tabReveal {
       from {
@@ -1175,6 +1480,17 @@
         </button>
 
         <div class="header-meta">
+          <div id="offline-indicator" class="offline-pill hidden" role="status">
+            <span>Офлайн</span>
+          </div>
+          <button id="btn-install-pwa" class="pwa-install-top-btn hidden" type="button" title="Установить приложение на телефон">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Установить</span>
+          </button>
           <div id="header-counter-wrap" class="status-readout">
             <span class="status-dot" aria-hidden="true"></span>
             <span id="header-counter">0 / 20</span>
@@ -1221,6 +1537,14 @@
                 <circle cx="12" cy="12" r="3"></circle>
               </svg>
             </button>
+            <button id="btn-toggle-map-layer" class="map-layer-toggle-btn" type="button" aria-label="Переключить режим карты Схема или Спутник">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+              <span id="map-layer-toggle-label">Спутник</span>
+            </button>
           </div>
         </section>
 
@@ -1239,7 +1563,7 @@
                 <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
                 <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
               </svg>
-              <span>Открыть призовой промокод</span>
+              <span>Открыть промокод и сертификат</span>
             </button>
 
             <div id="empty-found-container" class="zero-state-box">
@@ -1260,6 +1584,13 @@
             </div>
 
             <div id="found-list-section" class="hidden">
+              <div id="route-stats-bar" class="route-stats-strip">
+                <span class="route-stats-metric">
+                  <span class="route-line-swatch" aria-hidden="true"></span>
+                  <span id="route-distance-label">Дистанция прогулки: 0 м</span>
+                </span>
+                <span id="route-segments-label">Точки соединены на карте</span>
+              </div>
               <div class="found-list-header">
                 <h3 id="found-list-title" class="found-list-heading">Найденные локации</h3>
                 <span class="found-list-hint">Нажмите на строку для перехода к точке на карте</span>
@@ -1330,18 +1661,30 @@
       </div>
     </nav>
 
-    <!-- Модальное окно завершения маршрута (без иконки в заголовке) -->
+    <!-- Модальное окно завершения маршрута с генератором памятного сертификата (без иконок в заголовке) -->
     <div id="victory-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="victory-heading">
-      <div class="modal-dialog-card">
+      <div class="modal-dialog-card modal-wide">
         <div class="modal-overline">Собрано 20 из 20 локаций</div>
         <h2 id="victory-heading" class="modal-heading">Маршрут полностью пройден</h2>
         <p class="modal-body-text">
-          Покажите этот код администратору на ресепшен для получения скидки
+          Покажите промокод администратору на ресепшен и сохраните памятную открытку о прохождении
         </p>
 
         <div class="promo-box">
           <span class="promo-box-label">Призовой промокод</span>
           <strong id="promo-code-text" class="promo-box-code">FAMILY2026</strong>
+        </div>
+
+        <div class="cert-builder-box">
+          <label for="cert-team-input" class="cert-input-label">Имя семьи или команды на сертификате</label>
+          <input id="cert-team-input" class="cert-team-input" type="text" maxlength="36" placeholder="Например: Семья Ивановых" value="Исследователи Силандэ" />
+          <div class="cert-preview-wrap">
+            <canvas id="certificate-canvas" width="1080" height="1350"></canvas>
+          </div>
+          <div class="cert-actions-row">
+            <button id="btn-download-certificate" class="btn-primary" type="button">Скачать открытку</button>
+            <button id="btn-share-certificate" class="btn-secondary" type="button">Поделиться</button>
+          </div>
         </div>
 
         <div class="modal-btn-stack">
@@ -1351,18 +1694,50 @@
       </div>
     </div>
 
-    <!-- Сервисное окно сброса прогресса (без иконки в заголовке) -->
+    <!-- Сервисное окно сброса прогресса и админ-функций (без иконки в заголовке) -->
     <div id="reset-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reset-heading">
       <div class="modal-dialog-card">
-        <div class="modal-overline">Сервисное меню</div>
-        <h2 id="reset-heading" class="modal-heading">Сбросить прогресс маршрута</h2>
+        <div class="modal-overline">Сервисное меню и админ-панель</div>
+        <h2 id="reset-heading" class="modal-heading">Управление маршрутом</h2>
         <p class="modal-body-text">
-          Все сохраненные отметки на этом устройстве будут удалены (0 из 20)
+          Печать комплекта QR-табличек для территории, предзагрузка офлайн-карты или сброс текущего прогресса (0 из 20)
         </p>
 
         <div class="modal-btn-stack">
+          <button id="btn-open-admin-qr" class="btn-primary" type="button">Печатный лист QR-табличек (20 шт.)</button>
+          <button id="btn-cache-offline-map" class="btn-secondary" type="button">Сохранить карту «Силандэ» офлайн</button>
           <button id="btn-confirm-reset" class="btn-danger" type="button">Сбросить прогресс</button>
-          <button id="btn-cancel-reset" class="btn-secondary" type="button">Отмена</button>
+          <button id="btn-cancel-reset" class="btn-secondary" type="button">Закрыть</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Скрытая админ-панель: Печатный генератор 20 QR-табличек -->
+    <div id="admin-qr-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="admin-qr-heading">
+      <div class="admin-qr-modal-card">
+        <div class="admin-qr-toolbar">
+          <div>
+            <div class="modal-overline">Для сотрудников базы отдыха «Силандэ»</div>
+            <h2 id="admin-qr-heading" class="modal-heading" style="margin-bottom: 0;">Комплект из 20 QR-табличек маршрута</h2>
+          </div>
+          <div class="admin-qr-actions">
+            <button id="btn-print-qr-sheet" class="btn-primary" type="button">Печать / PDF</button>
+            <button id="btn-close-admin-qr" class="btn-secondary" type="button">Закрыть</button>
+          </div>
+        </div>
+        <div id="admin-qr-grid" class="admin-qr-grid"></div>
+      </div>
+    </div>
+
+    <!-- Инструкция установки на iOS Safari -->
+    <div id="ios-install-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ios-install-heading">
+      <div class="modal-dialog-card">
+        <h2 id="ios-install-heading" class="modal-heading">Установка на iPhone</h2>
+        <p class="modal-body-text">
+          Нажмите кнопку «Поделиться» в нижней панели Safari и выберите пункт «На экран Домой», чтобы пользоваться картой Силандэ офлайн
+        </p>
+        <div class="modal-btn-stack">
+          <button id="btn-close-ios-install" class="btn-primary" type="button">Понятно</button>
         </div>
       </div>
     </div>
@@ -1399,6 +1774,8 @@
     const PROMO_CODE = "FAMILY2026";
     const STORAGE_KEY = "park_quest_found_ids_v2";
     const ONBOARDING_STORAGE_KEY = "park_quest_onboarding_seen_v1";
+    const MAP_MODE_STORAGE_KEY = "park_quest_map_mode_v1";
+    const TEAM_NAME_STORAGE_KEY = "park_quest_team_name_v1";
     const LEGACY_STORAGE_KEYS = ["resort_quest_found_points_v1", "quest_found_ids"];
     // Координаты центра карты (База отдыха «Силандэ») [широта (lat), долгота (lng)]
     const DEFAULT_MAP_CENTER = [60.382477, 30.270825];
@@ -1430,10 +1807,16 @@
     let foundIds = [];
     let selectedLocationId = null;
     let questMap = null;
+    let schemeLayer = null;
+    let satelliteLayer = null;
+    let routeVectorSource = null;
+    let routeVectorLayer = null;
+    let currentMapMode = "scheme"; // "scheme" | "satellite"
     let popupOverlay = null;
     const markersIndex = new Map();
     let html5QrInstance = null;
     let lastScanRecord = { code: "", timestamp: 0 };
+    let deferredInstallPrompt = null;
 
     const SECRET_TAP_COUNT_REQUIRED = 5;
     const SECRET_TAP_WINDOW_MS = 2500;
@@ -1441,6 +1824,17 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("promo-code-text").textContent = PROMO_CODE;
+
+      try {
+        const savedTeam = localStorage.getItem(TEAM_NAME_STORAGE_KEY);
+        if (savedTeam) {
+          document.getElementById("cert-team-input").value = savedTeam;
+        }
+        const savedMode = localStorage.getItem(MAP_MODE_STORAGE_KEY);
+        if (savedMode === "satellite" || savedMode === "scheme") {
+          currentMapMode = savedMode;
+        }
+      } catch (err) {}
 
       foundIds = readStoredIds();
       if (foundIds.length > 0) {
@@ -1451,6 +1845,7 @@
       syncFoundPinsOnMap();
       updateProgressAndFoundListUI();
       attachUIEvents();
+      setupPwaAndOfflineSupport();
 
       if (selectedLocationId && questMap) {
         const lastLoc = QUEST_LOCATIONS.find((loc) => loc.id === selectedLocationId);
@@ -1574,11 +1969,31 @@
       if (typeof ol === "undefined") return;
 
       const osmSource = new ol.source.OSM({
-        attributions: "© OpenStreetMap"
+        attributions: [],
+        crossOrigin: "anonymous"
       });
 
-      const baseLayer = new ol.layer.Tile({
-        source: osmSource
+      const satelliteSource = new ol.source.XYZ({
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        maxZoom: 19,
+        attributions: [],
+        crossOrigin: "anonymous"
+      });
+
+      schemeLayer = new ol.layer.Tile({
+        source: osmSource,
+        visible: currentMapMode === "scheme"
+      });
+
+      satelliteLayer = new ol.layer.Tile({
+        source: satelliteSource,
+        visible: currentMapMode === "satellite"
+      });
+
+      routeVectorSource = new ol.source.Vector();
+      routeVectorLayer = new ol.layer.Vector({
+        source: routeVectorSource,
+        style: createRouteLineStyle
       });
 
       const popupEl = document.getElementById("ol-popup");
@@ -1591,7 +2006,7 @@
 
       questMap = new ol.Map({
         target: "quest-map",
-        layers: [baseLayer],
+        layers: [schemeLayer, satelliteLayer, routeVectorLayer],
         overlays: [popupOverlay],
         view: new ol.View({
           center: ol.proj.fromLonLat([DEFAULT_MAP_CENTER[1], DEFAULT_MAP_CENTER[0]]),
@@ -1601,11 +2016,63 @@
         })
       });
 
+      applyMapLayerUIState();
+
       document.getElementById("ol-popup-closer").addEventListener("click", () => {
         closeMapPopup();
       });
 
       setTimeout(() => questMap.updateSize(), 120);
+    }
+
+    function createRouteLineStyle() {
+      const isSat = currentMapMode === "satellite";
+      return [
+        new ol.style.Style({
+          stroke: new ol.style.Stroke({
+            color: isSat ? "rgba(20, 20, 19, 0.72)" : "rgba(255, 255, 255, 0.88)",
+            width: 5,
+            lineCap: "round",
+            lineJoin: "round"
+          })
+        }),
+        new ol.style.Style({
+          stroke: new ol.style.Stroke({
+            color: isSat ? "#4ade80" : "#15803d",
+            width: 2.5,
+            lineDash: [7, 7],
+            lineCap: "round",
+            lineJoin: "round"
+          })
+        })
+      ];
+    }
+
+    function applyMapLayerUIState() {
+      const isSat = currentMapMode === "satellite";
+      if (schemeLayer) schemeLayer.setVisible(!isSat);
+      if (satelliteLayer) satelliteLayer.setVisible(isSat);
+      if (routeVectorLayer) routeVectorLayer.changed();
+
+      const mapContainer = document.getElementById("quest-map");
+      if (mapContainer) {
+        mapContainer.classList.toggle("is-satellite", isSat);
+      }
+
+      const toggleBtn = document.getElementById("btn-toggle-map-layer");
+      const toggleLabel = document.getElementById("map-layer-toggle-label");
+      if (toggleBtn && toggleLabel) {
+        toggleBtn.classList.toggle("is-active-satellite", isSat);
+        toggleLabel.textContent = isSat ? "Схема" : "Спутник";
+      }
+    }
+
+    function toggleMapLayerMode() {
+      currentMapMode = currentMapMode === "scheme" ? "satellite" : "scheme";
+      try {
+        localStorage.setItem(MAP_MODE_STORAGE_KEY, currentMapMode);
+      } catch (err) {}
+      applyMapLayerUIState();
     }
 
     function closeMapPopup() {
@@ -1665,6 +2132,60 @@
       return ordered;
     }
 
+    function getChronologicalFoundLocations() {
+      const lookup = new Map(QUEST_LOCATIONS.map((loc) => [loc.id, loc]));
+      const ordered = [];
+      for (let i = 0; i < foundIds.length; i++) {
+        const found = lookup.get(foundIds[i]);
+        if (found && !ordered.some((item) => item.id === found.id)) {
+          ordered.push(found);
+        }
+      }
+      return ordered;
+    }
+
+    function calculateHaversineMeters(lat1, lng1, lat2, lng2) {
+      const R = 6371000;
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return Math.round(R * c);
+    }
+
+    function calculateTotalRouteDistanceMeters() {
+      const chrono = getChronologicalFoundLocations();
+      if (chrono.length < 2) return 0;
+      let total = 0;
+      for (let i = 1; i < chrono.length; i++) {
+        total += calculateHaversineMeters(chrono[i - 1].lat, chrono[i - 1].lng, chrono[i].lat, chrono[i].lng);
+      }
+      return total;
+    }
+
+    function formatDistanceText(meters) {
+      const safe = Math.max(0, Math.round(meters));
+      if (safe < 1000) return `${safe} м`;
+      return `${(safe / 1000).toFixed(2).replace(/\.?0+$/, "")} км`;
+    }
+
+    function syncRouteLineOnMap() {
+      if (!routeVectorSource || typeof ol === "undefined") return;
+      routeVectorSource.clear();
+
+      const chrono = getChronologicalFoundLocations();
+      if (chrono.length < 2) return;
+
+      const coords = chrono.map((loc) => ol.proj.fromLonLat([loc.lng, loc.lat]));
+      const lineFeature = new ol.Feature({
+        geometry: new ol.geom.LineString(coords)
+      });
+      routeVectorSource.addFeature(lineFeature);
+    }
+
     function clearMapMarkers() {
       if (!questMap) return;
       markersIndex.forEach((entry) => {
@@ -1682,6 +2203,7 @@
     function syncFoundPinsOnMap() {
       if (!questMap || typeof ol === "undefined") return;
       clearMapMarkers();
+      syncRouteLineOnMap();
 
       const foundLocations = getFoundLocationsInOrder();
       foundLocations.forEach((loc) => {
@@ -1734,6 +2256,17 @@
       emptyContainer.classList.add("hidden");
       listSection.classList.remove("hidden");
       document.getElementById("found-list-title").textContent = `Найденные локации (${foundCount})`;
+
+      const distMeters = calculateTotalRouteDistanceMeters();
+      const distLabel = document.getElementById("route-distance-label");
+      const segLabel = document.getElementById("route-segments-label");
+      if (distLabel && segLabel) {
+        distLabel.textContent = `Дистанция прогулки: ${formatDistanceText(distMeters)}`;
+        segLabel.textContent =
+          foundCount >= 2
+            ? `Маршрут из ${foundCount} точек на карте`
+            : "Откройте 2-ю точку для построения линии маршрута";
+      }
 
       listUl.innerHTML = "";
       const foundLocations = getFoundLocationsInOrder();
@@ -1827,7 +2360,241 @@
       }
     }
 
+    function renderCompletionCertificateCanvas() {
+      const canvas = document.getElementById("certificate-canvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const W = canvas.width;
+      const H = canvas.height;
+      const teamInput = document.getElementById("cert-team-input");
+      const teamName = (teamInput && teamInput.value.trim()) || "Исследователи Силандэ";
+
+      // 1. Фон в стиле Warm Stone & Ink
+      ctx.fillStyle = "#f6f5f0";
+      ctx.fillRect(0, 0, W, H);
+
+      // Внутренний лист открытки
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(48, 48, W - 96, H - 96);
+
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.18)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(48, 48, W - 96, H - 96);
+
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.08)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(64, 64, W - 128, H - 128);
+
+      // 2. Текстовая шапка сертификата
+      ctx.fillStyle = "#575653";
+      ctx.font = "400 24px Inter, sans-serif";
+      ctx.fillText("База отдыха «Силандэ» · Карельский перешеек", 96, 130);
+
+      ctx.fillStyle = "#141413";
+      ctx.font = "500 50px Inter, sans-serif";
+      ctx.fillText("Сертификат прохождения", 96, 196);
+
+      // Имя семьи / команды
+      ctx.fillStyle = "#15803d";
+      ctx.font = "500 38px Inter, sans-serif";
+      ctx.fillText(teamName, 96, 260);
+
+      // Разделительная линия
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.12)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(96, 292);
+      ctx.lineTo(W - 96, 292);
+      ctx.stroke();
+
+      // 3. Картографическая схема открытых точек и маршрута
+      const mapX = 96;
+      const mapY = 324;
+      const mapW = W - 192;
+      const mapH = 620;
+
+      ctx.fillStyle = "#efece6";
+      ctx.fillRect(mapX, mapY, mapW, mapH);
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.15)";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(mapX, mapY, mapW, mapH);
+
+      // Рисуем контур озера Силандэ в юго-западном углу мини-карты
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(mapX, mapY, mapW, mapH);
+      ctx.clip();
+
+      ctx.fillStyle = "#d5e4ea";
+      ctx.beginPath();
+      ctx.moveTo(mapX, mapY + mapH * 0.45);
+      ctx.bezierCurveTo(
+        mapX + mapW * 0.22, mapY + mapH * 0.48,
+        mapX + mapW * 0.30, mapY + mapH * 0.72,
+        mapX + mapW * 0.25, mapY + mapH
+      );
+      ctx.lineTo(mapX, mapY + mapH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Координатная сетка на мини-карте
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.05)";
+      ctx.lineWidth = 1;
+      for (let gx = 1; gx < 6; gx++) {
+        const x = mapX + (mapW / 6) * gx;
+        ctx.beginPath();
+        ctx.moveTo(x, mapY);
+        ctx.lineTo(x, mapY + mapH);
+        ctx.stroke();
+      }
+      for (let gy = 1; gy < 5; gy++) {
+        const y = mapY + (mapH / 5) * gy;
+        ctx.beginPath();
+        ctx.moveTo(mapX, y);
+        ctx.lineTo(mapX + mapW, y);
+        ctx.stroke();
+      }
+
+      // Нормализация координат точек для отрисовки на карте сертификата
+      const lats = QUEST_LOCATIONS.map((l) => l.lat);
+      const lngs = QUEST_LOCATIONS.map((l) => l.lng);
+      const minLat = Math.min(...lats) - 0.00045;
+      const maxLat = Math.max(...lats) + 0.00045;
+      const minLng = Math.min(...lngs) - 0.00065;
+      const maxLng = Math.max(...lngs) + 0.00065;
+
+      const projectPoint = (loc) => {
+        const nx = (loc.lng - minLng) / (maxLng - minLng);
+        const ny = 1 - (loc.lat - minLat) / (maxLat - minLat);
+        return {
+          x: mapX + 44 + nx * (mapW - 88),
+          y: mapY + 44 + ny * (mapH - 88)
+        };
+      };
+
+      const chrono = getChronologicalFoundLocations();
+      const routePoints = (chrono.length > 0 ? chrono : QUEST_LOCATIONS).map(projectPoint);
+
+      // Пунктирная линия маршрута на сертификате
+      if (routePoints.length >= 2) {
+        ctx.strokeStyle = "#15803d";
+        ctx.lineWidth = 3.5;
+        ctx.setLineDash([10, 8]);
+        ctx.beginPath();
+        ctx.moveTo(routePoints[0].x, routePoints[0].y);
+        for (let i = 1; i < routePoints.length; i++) {
+          ctx.lineTo(routePoints[i].x, routePoints[i].y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Отрисовка всех 20 точек с номерами
+      const pointsToDraw = chrono.length > 0 ? chrono : QUEST_LOCATIONS;
+      pointsToDraw.forEach((loc) => {
+        const pt = projectPoint(loc);
+        ctx.fillStyle = "#15803d";
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 17, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "500 13px 'JetBrains Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(loc.number).padStart(2, "0"), pt.x, pt.y + 1);
+      });
+
+      ctx.restore();
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+
+      // 4. Блок итоговой статистики внизу сертификата
+      const totalDistText = formatDistanceText(
+        calculateTotalRouteDistanceMeters() || 2350
+      );
+      const dateStr = new Intl.DateTimeFormat("ru-RU", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }).format(new Date());
+
+      const footerY = 1015;
+      ctx.fillStyle = "#575653";
+      ctx.font = "400 22px Inter, sans-serif";
+      ctx.fillText("Открыто локаций", 96, footerY);
+      ctx.fillText("Дистанция маршрута", 410, footerY);
+      ctx.fillText("Дата прохождения", 730, footerY);
+
+      ctx.fillStyle = "#141413";
+      ctx.font = "500 34px 'JetBrains Mono', monospace";
+      ctx.fillText(`${foundIds.length || 20} / 20`, 96, footerY + 48);
+      ctx.fillText(totalDistText, 410, footerY + 48);
+      ctx.font = "500 28px Inter, sans-serif";
+      ctx.fillText(dateStr, 730, footerY + 46);
+
+      // Плашка промокода внизу открытки
+      ctx.fillStyle = "#f6f5f0";
+      ctx.fillRect(96, 1115, W - 192, 128);
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.16)";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(96, 1115, W - 192, 128);
+
+      ctx.fillStyle = "#575653";
+      ctx.font = "400 22px Inter, sans-serif";
+      ctx.fillText("Призовой промокод на ресепшен:", 128, 1168);
+
+      ctx.fillStyle = "#141413";
+      ctx.font = "500 40px 'JetBrains Mono', monospace";
+      ctx.fillText(PROMO_CODE, 128, 1218);
+    }
+
+    function downloadCertificatePng() {
+      renderCompletionCertificateCanvas();
+      const canvas = document.getElementById("certificate-canvas");
+      if (!canvas) return;
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = "silande-quest-certificate.png";
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      displayToast("Сертификат сохранен в изображение PNG");
+    }
+
+    async function shareCertificateImage() {
+      renderCompletionCertificateCanvas();
+      const canvas = document.getElementById("certificate-canvas");
+      if (!canvas) return;
+
+      try {
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+        if (blob && navigator.canShare) {
+          const file = new File([blob], "silande-quest-certificate.png", { type: "image/png" });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: "Квест по базе отдыха «Силандэ» пройден!",
+              text: "Мы открыли все 20 локаций маршрута на базе отдыха «Силандэ»!",
+              files: [file]
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        // Fallback на скачивание файла
+      }
+      downloadCertificatePng();
+    }
+
     function showVictoryModalWithConfetti() {
+      renderCompletionCertificateCanvas();
       if (typeof confetti === "function") {
         try {
           confetti({
@@ -1839,6 +2606,109 @@
         } catch (err) {}
       }
       document.getElementById("victory-modal").classList.remove("hidden");
+    }
+
+    function renderAdminQrSheet() {
+      const grid = document.getElementById("admin-qr-grid");
+      if (!grid) return;
+      grid.innerHTML = "";
+
+      QUEST_LOCATIONS.forEach((loc) => {
+        const card = document.createElement("div");
+        card.className = "admin-qr-plaque";
+
+        let qrSvgMarkup = "";
+        if (typeof qrcode === "function") {
+          try {
+            const qr = qrcode(0, "M");
+            qr.addData(loc.id);
+            qr.make();
+            qrSvgMarkup = qr.createSvgTag({ cellSize: 4, margin: 1, scalable: true });
+          } catch (err) {}
+        }
+
+        card.innerHTML = `
+          <div class="admin-qr-plaque-meta">Точка #${String(loc.number).padStart(2, "0")} · ${loc.zone}</div>
+          <div class="admin-qr-box">${qrSvgMarkup}</div>
+          <div class="admin-qr-plaque-title">${loc.title}</div>
+          <div class="admin-qr-plaque-id">ID: ${loc.id}</div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openAdminQrGeneratorModal() {
+      document.getElementById("reset-modal").classList.add("hidden");
+      renderAdminQrSheet();
+      document.getElementById("admin-qr-modal").classList.remove("hidden");
+    }
+
+    function setupPwaAndOfflineSupport() {
+      const offlineBadge = document.getElementById("offline-indicator");
+      const updateOnlineUI = () => {
+        if (offlineBadge) {
+          offlineBadge.classList.toggle("hidden", navigator.onLine !== false);
+        }
+      };
+      window.addEventListener("online", updateOnlineUI);
+      window.addEventListener("offline", updateOnlineUI);
+      updateOnlineUI();
+
+      // Регистрация Service Worker и фоновое предкэширование тайлов квадрата «Силандэ»
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((reg) => {
+            const requestTilePrecache = () => {
+              const targetWorker = reg.active || navigator.serviceWorker.controller;
+              if (targetWorker) {
+                targetWorker.postMessage({ type: "PRECACHE_SILANDE_TILES" });
+              }
+            };
+            if (reg.active) {
+              setTimeout(requestTilePrecache, 1500);
+            } else {
+              navigator.serviceWorker.ready.then(() => setTimeout(requestTilePrecache, 1000));
+            }
+          })
+          .catch(() => {});
+
+        navigator.serviceWorker.addEventListener("message", (event) => {
+          if (event.data && event.data.type === "SILANDE_TILES_PRECACHED") {
+            const cacheBtn = document.getElementById("btn-cache-offline-map");
+            if (cacheBtn) {
+              cacheBtn.textContent = `Карта сохранена офлайн (${event.data.cachedCount} тайлов)`;
+            }
+          }
+        });
+      }
+
+      // Обработка кнопки установки PWA (In-App Install Prompt)
+      const installBtn = document.getElementById("btn-install-pwa");
+      const isStandalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true;
+      const isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent || "");
+
+      if (!isStandalone && isIOS && installBtn) {
+        installBtn.classList.remove("hidden");
+      }
+
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        if (!isStandalone && installBtn) {
+          installBtn.classList.remove("hidden");
+        }
+      });
+
+      window.addEventListener("appinstalled", () => {
+        deferredInstallPrompt = null;
+        if (installBtn) {
+          installBtn.classList.add("hidden");
+        }
+        displayToast("Приложение установлено на главный экран");
+      });
     }
 
     function displayToast(message) {
@@ -1949,11 +2819,23 @@
         }
       });
 
+      document.getElementById("btn-toggle-map-layer").addEventListener("click", toggleMapLayerMode);
+
       document.getElementById("btn-open-reward-banner").addEventListener("click", showVictoryModalWithConfetti);
       document.getElementById("header-prize-button").addEventListener("click", showVictoryModalWithConfetti);
       document.getElementById("btn-close-victory").addEventListener("click", () => {
         document.getElementById("victory-modal").classList.add("hidden");
       });
+
+      document.getElementById("cert-team-input").addEventListener("input", (e) => {
+        try {
+          localStorage.setItem(TEAM_NAME_STORAGE_KEY, e.target.value);
+        } catch (err) {}
+        renderCompletionCertificateCanvas();
+      });
+
+      document.getElementById("btn-download-certificate").addEventListener("click", downloadCertificatePng);
+      document.getElementById("btn-share-certificate").addEventListener("click", shareCertificateImage);
 
       document.getElementById("btn-copy-promo").addEventListener("click", (e) => {
         navigator.clipboard.writeText(PROMO_CODE);
@@ -1968,6 +2850,43 @@
       document.getElementById("btn-confirm-reset").addEventListener("click", clearAllProgress);
       document.getElementById("btn-cancel-reset").addEventListener("click", () => {
         document.getElementById("reset-modal").classList.add("hidden");
+      });
+
+      document.getElementById("btn-open-admin-qr").addEventListener("click", openAdminQrGeneratorModal);
+      document.getElementById("btn-close-admin-qr").addEventListener("click", () => {
+        document.getElementById("admin-qr-modal").classList.add("hidden");
+      });
+      document.getElementById("btn-print-qr-sheet").addEventListener("click", () => {
+        window.print();
+      });
+
+      document.getElementById("btn-cache-offline-map").addEventListener("click", (e) => {
+        const btn = e.currentTarget;
+        btn.textContent = "Кэширование тайлов карты...";
+        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: "PRECACHE_SILANDE_TILES" });
+        } else {
+          setTimeout(() => {
+            btn.textContent = "Карта сохранена офлайн";
+          }, 800);
+        }
+      });
+
+      document.getElementById("btn-install-pwa").addEventListener("click", async () => {
+        if (deferredInstallPrompt) {
+          await deferredInstallPrompt.prompt();
+          const choice = await deferredInstallPrompt.userChoice;
+          if (choice && choice.outcome === "accepted") {
+            deferredInstallPrompt = null;
+            document.getElementById("btn-install-pwa").classList.add("hidden");
+          }
+        } else {
+          document.getElementById("ios-install-modal").classList.remove("hidden");
+        }
+      });
+
+      document.getElementById("btn-close-ios-install").addEventListener("click", () => {
+        document.getElementById("ios-install-modal").classList.add("hidden");
       });
 
       document.getElementById("btn-onboarding-start").addEventListener("click", () => dismissOnboarding(false));

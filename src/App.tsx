@@ -117,6 +117,21 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {/* Горизонтальная полоса прогресса под шапкой */}
+          <div
+            role="progressbar"
+            aria-label="Прогресс прохождения квеста"
+            aria-valuemin={0}
+            aria-valuemax={progress.totalCount}
+            aria-valuenow={progress.foundCount}
+            className="mt-2.5 w-full h-1.5 rounded-full bg-slate-100 overflow-hidden"
+          >
+            <div
+              className="h-full bg-emerald-600 transition-all duration-300 ease-out"
+              style={{ width: `${progress.percentage}%` }}
+            />
+          </div>
         </header>
 
         {/* Основная область контента */}

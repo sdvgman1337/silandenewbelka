@@ -285,7 +285,7 @@ export function processQrScan(
 }
 
 /**
- * Возвращает список ТОЛЬКО найденных локаций (в порядке от последней найденной к первой)
+ * Возвращает список ТОЛЬКО найденных локаций (в порядке от последней найденной к первой — для списка)
  */
 export function getFoundLocations(foundIds: string[]): QuestLocation[] {
   const locationMap = new Map(QUEST_LOCATIONS.map((loc) => [loc.id, loc]));
@@ -299,6 +299,79 @@ export function getFoundLocations(foundIds: string[]): QuestLocation[] {
   }
 
   return result;
+}
+
+/**
+ * Возвращает список найденных локаций в хронологическом порядке открытия (для линии маршрута)
+ */
+export function getChronologicalFoundLocations(
+  foundIds: string[]
+): QuestLocation[] {
+  const locationMap = new Map(QUEST_LOCATIONS.map((loc) => [loc.id, loc]));
+  const result: QuestLocation[] = [];
+
+  for (let i = 0; i < foundIds.length; i++) {
+    const loc = locationMap.get(foundIds[i]);
+    if (loc && !result.some((item) => item.id === loc.id)) {
+      result.push(loc);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Вычисляет расстояние между двумя координатами по формуле гаверсинусов (в метрах)
+ */
+export function calculateHaversineDistanceMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371000; // Радиус Земли в метрах
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+/**
+ * Вычисляет общую протяженность пройденного маршрута по открытым локациям (в метрах)
+ */
+export function calculateRouteDistanceMeters(foundIds: string[]): number {
+  const ordered = getChronologicalFoundLocations(foundIds);
+  if (ordered.length < 2) return 0;
+
+  let totalMeters = 0;
+  for (let i = 1; i < ordered.length; i++) {
+    totalMeters += calculateHaversineDistanceMeters(
+      ordered[i - 1].lat,
+      ordered[i - 1].lng,
+      ordered[i].lat,
+      ordered[i].lng
+    );
+  }
+  return totalMeters;
+}
+
+/**
+ * Форматирует расстояние маршрута в метрах или километрах
+ */
+export function formatRouteDistance(meters: number): string {
+  const safeMeters = Math.max(0, Math.round(meters));
+  if (safeMeters < 1000) {
+    return `${safeMeters} м`;
+  }
+  const km = (safeMeters / 1000).toFixed(2).replace(/\.?0+$/, '');
+  return `${km} км`;
 }
 
 /**
