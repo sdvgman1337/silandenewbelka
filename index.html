@@ -212,17 +212,51 @@
       animation: tabReveal 0.28s var(--ease-out) both;
     }
 
-    /* КАРТА НА ВСЮ ШИРИНУ И ДО ВЕРХНЕГО КРАЯ ЭКРАНА (увеличена по высоте снизу) */
+    /* КАРТА НА ВСЮ ШИРИНУ И ДО ВЕРХНЕГО КРАЯ ЭКРАНА */
     .map-edge-stage {
       position: relative;
       width: 100%;
-      height: 72dvh;
-      min-height: 520px;
-      max-height: 820px;
+      height: 58dvh;
+      min-height: 410px;
+      max-height: 760px;
       background: #e9e5dc;
       border-bottom: 1px solid var(--border-hairline);
       overflow: hidden;
       transition: height 0.3s var(--ease-out);
+    }
+
+    .top-resort-badge {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: var(--radius-control);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border-hairline);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-primary);
+      flex-shrink: 0;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      pointer-events: auto;
+      transition: background-color 0.16s var(--ease-out), border-color 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+
+    .top-resort-badge:hover {
+      background: #ffffff;
+      border-color: var(--border-strong);
+    }
+
+    .top-resort-badge:active {
+      transform: scale(0.97);
+    }
+
+    .top-resort-badge svg {
+      flex-shrink: 0;
     }
 
     #quest-map {
@@ -550,27 +584,68 @@
       transform: scale(0.97);
     }
 
-    /* Пустое состояние и реестр найденных точек */
-    .zero-state-box {
-      padding: 8px 0 4px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
-      animation: tabReveal 0.28s var(--ease-out) both;
+    /* Текстовая шапка журнала под картой на белом фоне, как у плашки с кнопкой */
+    .family-scenic-banner {
+      margin: -16px -16px 12px -16px;
+      border-radius: 0;
+      border: none;
+      background: var(--bg-surface);
+      overflow: hidden;
     }
 
-    .zero-state-title {
+    .family-scenic-body {
+      padding: 16px 16px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .family-scenic-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 4px 12px;
+    }
+
+    .family-scenic-title {
       font-size: 16px;
       font-weight: 500;
       color: var(--text-primary);
     }
 
-    .zero-state-desc {
-      font-size: 14px;
+    .family-scenic-sub {
+      font-size: 13px;
       color: var(--text-secondary);
-      max-width: 640px;
-      line-height: 1.5;
+      line-height: 1.45;
+    }
+
+    /* Пустое состояние */
+    .zero-state-box {
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+      animation: tabReveal 0.28s var(--ease-out) both;
+    }
+
+    .found-card-zone-art {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-control);
+      background: #ffffff;
+      border: 1px solid var(--border-hairline);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .scanner-idle-illus {
+      width: 84px;
+      height: 84px;
+      margin-bottom: 4px;
     }
 
     .found-list-header {
@@ -621,15 +696,24 @@
       animation-delay: calc(var(--card-idx, 0) * 32ms);
     }
 
+    .rounded-xl {
+      border-radius: 0.75rem;
+    }
+
+    .shadow-sm {
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+
     .found-location-card {
       width: 100%;
       max-width: 100%;
       min-width: 0;
       min-height: 60px;
       padding: 12px;
-      border-radius: var(--radius-card);
+      border-radius: 0.75rem;
       border: 1px solid var(--border-hairline);
-      background: var(--bg-canvas);
+      background: var(--bg-surface);
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
       display: flex;
       align-items: center;
       gap: 12px;
@@ -637,12 +721,13 @@
       font-family: inherit;
       overflow: hidden;
       cursor: pointer;
-      transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.2s var(--ease-out);
+      transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), transform 0.2s var(--ease-out);
     }
 
     .found-location-card:hover {
       background: var(--bg-subtle);
       border-color: var(--border-strong);
+      box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.06);
       transform: translateY(-1px);
     }
 
@@ -1463,11 +1548,13 @@
     <!-- Верхние плавающие контролы поверх полноширинной карты (без заголовка и подзаголовка) -->
     <header class="top-bar-wrapper">
       <div class="top-bar">
-        <button id="secret-reset-trigger" class="brand-mark" type="button" aria-label="Справка и правила квеста" title="Справка по квесту">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        <button id="secret-reset-trigger" class="top-resort-badge" type="button" aria-label="Силандэ — справка и правила квеста" title="Силандэ — правила квеста">
+          <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+            <circle cx="14" cy="14" r="13" fill="#faf5e8" stroke="#15803d" stroke-width="1.4"/>
+            <circle cx="19" cy="9" r="3.2" fill="#f59e0b" opacity="0.85"/>
+            <path d="M9 19L13 10L17 19H9Z" fill="#2d6a4f"/>
+            <path d="M13 19L16.5 11.5L20 19H13Z" fill="#15803d"/>
+            <path d="M5.5 21.5C8 20.3 10.5 22.5 13.5 21.5C16.5 20.5 19 22.5 22.5 21.3" stroke="#2b6cb0" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
         </button>
 
@@ -1545,8 +1632,19 @@
         </div>
 
         <div class="workspace-container">
-          <!-- Полноширинная плашка журнала открытых локаций с небольшими отступами по бокам -->
+          <!-- Полноширинная плашка журнала открытых локаций с дружелюбной семейной иллюстрацией -->
           <section class="surface-panel" aria-label="Журнал найденных локаций">
+            <div class="family-scenic-banner">
+              <div class="family-scenic-body">
+                <div class="family-scenic-head">
+                  <h2 class="family-scenic-title">Семейное приключение в «Силандэ»</h2>
+                </div>
+                <p class="family-scenic-sub">
+                  Гуляйте всей семьей по сосновому бору и берегу озера, находите QR-таблички и соберите коллекцию для подарка на ресепшен
+                </p>
+              </div>
+            </div>
+
             <button id="btn-open-reward-banner" class="claim-prize-btn hidden" type="button">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="20 12 20 22 4 22 4 12"></polyline>
@@ -1559,10 +1657,6 @@
             </button>
 
             <div id="empty-found-container" class="zero-state-box">
-              <h3 class="zero-state-title">Пока не открыто ни одной локации</h3>
-              <p class="zero-state-desc">
-                Находите таблички с QR-кодами на территории парка и сканируйте их камерой смартфона — каждая найденная точка сразу отобразится на карте
-              </p>
               <button id="btn-go-scanner" class="btn-primary" type="button">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
@@ -1571,7 +1665,7 @@
                   <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
                   <rect x="7" y="7" width="10" height="10" rx="1"></rect>
                 </svg>
-                <span>Сканировать первый QR-код</span>
+                <span>Сканировать QR-код</span>
               </button>
             </div>
 
@@ -1584,11 +1678,10 @@
                   </svg>
                   <span id="route-distance-label">Дистанция прогулки: 0 м</span>
                 </span>
-                <span id="route-segments-label">Открыто 0 из 20 локаций</span>
               </div>
               <div class="found-list-header">
                 <h3 id="found-list-title" class="found-list-heading">Найденные локации</h3>
-                <span class="found-list-hint">Нажмите на строку для перехода к точке на карте</span>
+                <span class="found-list-hint">Нажмите на карточку для показа на карте</span>
               </div>
               <ul id="found-locations-ul" class="found-cards-grid"></ul>
             </div>
@@ -1601,16 +1694,27 @@
         <div class="scanner-layout">
           <section class="surface-panel" aria-label="Сканер QR-кодов">
             <div class="scanner-head">
-              <span class="section-kicker">Оптический сканер</span>
-              <h2 class="scanner-heading">Наведите камеру на QR-код</h2>
-              <p class="scanner-sub">Поместите табличку с кодом в центр видоискателя для автоматического считывания</p>
+              <span class="section-kicker">Фото-искатель приключений</span>
+              <h2 class="scanner-heading">Наведите камеру на табличку</h2>
+              <p class="scanner-sub">Поместите лесную табличку с QR-кодом в центр рамки — точка сразу откроется на семейной карте</p>
             </div>
 
             <div class="camera-stage">
               <div id="qr-reader"></div>
               <div id="camera-idle-placeholder" class="camera-idle-overlay">
-                <h3 class="camera-idle-title">Камера готова к работе</h3>
-                <p class="camera-idle-desc">Разрешите доступ к камере смартфона для сканирования контрольных точек</p>
+                <svg class="scanner-idle-illus" viewBox="0 0 88 88" fill="none" aria-hidden="true">
+                  <circle cx="44" cy="44" r="38" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+                  <path d="M20 62L30 40L40 62H20Z" fill="#2d6a4f"/>
+                  <path d="M50 62L60 38L70 62H50Z" fill="#15803d"/>
+                  <rect x="41" y="54" width="6" height="16" fill="#8c6239"/>
+                  <rect x="28" y="26" width="32" height="28" rx="4" fill="#faf5e8" stroke="#22c55e" stroke-width="2"/>
+                  <rect x="34" y="32" width="7" height="7" fill="#141413"/>
+                  <rect x="47" y="32" width="7" height="7" fill="#141413"/>
+                  <rect x="34" y="43" width="7" height="7" fill="#141413"/>
+                  <rect x="45" y="43" width="9" height="7" fill="#15803d"/>
+                </svg>
+                <h3 class="camera-idle-title">Готовы искать секретные точки?</h3>
+                <p class="camera-idle-desc">Разрешите доступ к камере смартфона, чтобы сканировать таблички на прогулке по базе «Силандэ»</p>
                 <button id="btn-enable-camera" class="btn-primary" type="button">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
@@ -2179,6 +2283,46 @@
       });
     }
 
+    function getZoneIllustrationSvg(zone) {
+      const z = (zone || "").toLowerCase();
+      if (z.includes("озер") || z.includes("берег")) {
+        return `<svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <circle cx="21" cy="7" r="3.5" fill="#f59e0b" opacity="0.85"/>
+          <path d="M10 18L15 7L19 18H10Z" fill="#3b82f6"/>
+          <path d="M7 19H21L19 22H9L7 19Z" fill="#8c6239"/>
+          <path d="M4 24C8 22.5 11 25.5 14 24C17 22.5 20 25.5 24 24" stroke="#2b6cb0" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>`;
+      }
+      if (z.includes("бор") || z.includes("лес") || z.includes("сосн")) {
+        return `<svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="12.5" y="20" width="3" height="5" fill="#7c5836"/>
+          <polygon points="14,3 6,13 22,13" fill="#2d6a4f"/>
+          <polygon points="14,9 4,20 24,20" fill="#15803d"/>
+        </svg>`;
+      }
+      if (z.includes("усадьб") || z.includes("жилая") || z.includes("въезд")) {
+        return `<svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <polygon points="14,4 4,15 24,15" fill="#b45309"/>
+          <rect x="7" y="15" width="14" height="9" rx="1" fill="#e7dec8" stroke="#7c5836" stroke-width="1.4"/>
+          <rect x="11.5" y="17.5" width="5" height="6.5" fill="#fef08a" stroke="#7c5836" stroke-width="1.2"/>
+        </svg>`;
+      }
+      if (z.includes("банный") || z.includes("барбекю")) {
+        return `<svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <circle cx="10" cy="22" r="2.5" fill="#78716c"/>
+          <circle cx="18" cy="22" r="2.5" fill="#78716c"/>
+          <circle cx="14" cy="23" r="2.5" fill="#57534e"/>
+          <path d="M14 5C19 11 21 17 14 21C7 17 9 11 14 5Z" fill="#ea580c"/>
+          <path d="M14 10C17 14 17 18 14 21C11 18 11 14 14 10Z" fill="#fde047"/>
+        </svg>`;
+      }
+      return `<svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+        <circle cx="14" cy="14" r="10" fill="#faf5e8" stroke="#15803d" stroke-width="1.6"/>
+        <polygon points="17.5,10.5 15.2,15.2 10.5,17.5 12.8,12.8" fill="#c2410c"/>
+        <circle cx="14" cy="14" r="1.6" fill="#141413"/>
+      </svg>`;
+    }
+
     function updateProgressAndFoundListUI() {
       const total = QUEST_LOCATIONS.length;
       const foundCount = foundIds.length;
@@ -2207,10 +2351,8 @@
 
       const distMeters = calculateTotalRouteDistanceMeters();
       const distLabel = document.getElementById("route-distance-label");
-      const segLabel = document.getElementById("route-segments-label");
-      if (distLabel && segLabel) {
+      if (distLabel) {
         distLabel.textContent = `Дистанция прогулки: ${formatDistanceText(distMeters)}`;
-        segLabel.textContent = `Открыто ${foundCount} из ${total} локаций`;
       }
 
       listUl.innerHTML = "";
@@ -2220,7 +2362,7 @@
         li.style.setProperty("--card-idx", String(Math.min(idx, 8)));
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "found-location-card" + (loc.id === selectedLocationId ? " selected" : "");
+        button.className = "found-location-card rounded-xl shadow-sm" + (loc.id === selectedLocationId ? " selected" : "");
         button.innerHTML = `
           <div class="found-card-index">${String(loc.number).padStart(2, "0")}</div>
           <div class="found-card-body">
@@ -3065,7 +3207,13 @@
       ctx.lineWidth = 1;
       ctx.strokeRect(mapX - 5, mapY - 5, mapW + 10, mapH + 10);
 
-      // 4. Блок итоговой статистики внизу сертификата
+      // 4. Блок итоговой статистики и круглой печати внизу сертификата (без промокода)
+      ctx.fillStyle = "#f2efe8";
+      ctx.fillRect(88, 1030, W - 176, 224);
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.22)";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(88, 1030, W - 176, 224);
+
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
       const totalDistText = formatDistanceText(
@@ -3077,37 +3225,22 @@
         year: "numeric"
       }).format(new Date());
 
-      const footerY = 1026;
+      const footerY = 1086;
       ctx.fillStyle = "#575653";
       ctx.font = "400 20px Inter, sans-serif";
-      ctx.fillText("Открыто локаций", 88, footerY);
-      ctx.fillText("Дистанция прогулки", 400, footerY);
-      ctx.fillText("Дата прохождения", 720, footerY);
+      ctx.fillText("Открыто локаций", 120, footerY);
+      ctx.fillText("Дистанция прогулки", 360, footerY);
+      ctx.fillText("Дата прохождения", 120, footerY + 96);
 
       ctx.fillStyle = "#141413";
-      ctx.font = "600 32px 'JetBrains Mono', monospace";
-      ctx.fillText(`${foundIds.length || 20} / 20`, 88, footerY + 42);
-      ctx.fillText(totalDistText, 400, footerY + 42);
-      ctx.font = "600 26px Inter, sans-serif";
-      ctx.fillText(dateStr, 720, footerY + 40);
+      ctx.font = "600 34px 'JetBrains Mono', monospace";
+      ctx.fillText(`${foundIds.length || 20} / 20`, 120, footerY + 42);
+      ctx.fillText(totalDistText, 360, footerY + 42);
+      ctx.font = "600 28px Inter, sans-serif";
+      ctx.fillText(dateStr, 120, footerY + 136);
 
-      // 5. Купон призового промокода и официальная круглая печать базы «Силандэ»
-      ctx.fillStyle = "#f2efe8";
-      ctx.fillRect(88, 1110, W - 176, 148);
-      ctx.strokeStyle = "rgba(20, 20, 19, 0.22)";
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(88, 1110, W - 176, 148);
-
-      ctx.fillStyle = "#575653";
-      ctx.font = "400 21px Inter, sans-serif";
-      ctx.fillText("Призовой промокод на ресепшен базы отдыха «Силандэ»:", 120, 1162);
-
-      ctx.fillStyle = "#141413";
-      ctx.font = "600 44px 'JetBrains Mono', monospace";
-      ctx.fillText(PROMO_CODE, 120, 1222);
-
-      // Векторный штамп-печать о прохождении маршрута
-      drawOfficialResortStamp(ctx, W - 205, 1184);
+      // Векторный штамп-печать о прохождении маршрута справа
+      drawOfficialResortStamp(ctx, W - 210, 1142);
     }
 
     function downloadCertificatePng() {
