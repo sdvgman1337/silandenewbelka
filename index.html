@@ -1106,17 +1106,9 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .route-line-swatch {
-      width: 20px;
-      height: 2px;
-      background: repeating-linear-gradient(
-        to right,
-        var(--accent-primary) 0,
-        var(--accent-primary) 5px,
-        transparent 5px,
-        transparent 9px
-      );
-      display: inline-block;
+    .route-stats-icon {
+      color: var(--accent-primary);
+      flex-shrink: 0;
     }
 
     /* Памятный сертификат в модальном окне победы */
@@ -1586,10 +1578,13 @@
             <div id="found-list-section" class="hidden">
               <div id="route-stats-bar" class="route-stats-strip">
                 <span class="route-stats-metric">
-                  <span class="route-line-swatch" aria-hidden="true"></span>
+                  <svg class="route-stats-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                  </svg>
                   <span id="route-distance-label">Дистанция прогулки: 0 м</span>
                 </span>
-                <span id="route-segments-label">Точки соединены на карте</span>
+                <span id="route-segments-label">Открыто 0 из 20 локаций</span>
               </div>
               <div class="found-list-header">
                 <h3 id="found-list-title" class="found-list-heading">Найденные локации</h3>
@@ -1809,8 +1804,6 @@
     let questMap = null;
     let schemeLayer = null;
     let satelliteLayer = null;
-    let routeVectorSource = null;
-    let routeVectorLayer = null;
     let currentMapMode = "scheme"; // "scheme" | "satellite"
     let popupOverlay = null;
     const markersIndex = new Map();
@@ -1990,12 +1983,6 @@
         visible: currentMapMode === "satellite"
       });
 
-      routeVectorSource = new ol.source.Vector();
-      routeVectorLayer = new ol.layer.Vector({
-        source: routeVectorSource,
-        style: createRouteLineStyle
-      });
-
       const popupEl = document.getElementById("ol-popup");
       popupOverlay = new ol.Overlay({
         element: popupEl,
@@ -2006,7 +1993,7 @@
 
       questMap = new ol.Map({
         target: "quest-map",
-        layers: [schemeLayer, satelliteLayer, routeVectorLayer],
+        layers: [schemeLayer, satelliteLayer],
         overlays: [popupOverlay],
         view: new ol.View({
           center: ol.proj.fromLonLat([DEFAULT_MAP_CENTER[1], DEFAULT_MAP_CENTER[0]]),
@@ -2025,34 +2012,10 @@
       setTimeout(() => questMap.updateSize(), 120);
     }
 
-    function createRouteLineStyle() {
-      const isSat = currentMapMode === "satellite";
-      return [
-        new ol.style.Style({
-          stroke: new ol.style.Stroke({
-            color: isSat ? "rgba(20, 20, 19, 0.72)" : "rgba(255, 255, 255, 0.88)",
-            width: 5,
-            lineCap: "round",
-            lineJoin: "round"
-          })
-        }),
-        new ol.style.Style({
-          stroke: new ol.style.Stroke({
-            color: isSat ? "#4ade80" : "#15803d",
-            width: 2.5,
-            lineDash: [7, 7],
-            lineCap: "round",
-            lineJoin: "round"
-          })
-        })
-      ];
-    }
-
     function applyMapLayerUIState() {
       const isSat = currentMapMode === "satellite";
       if (schemeLayer) schemeLayer.setVisible(!isSat);
       if (satelliteLayer) satelliteLayer.setVisible(isSat);
-      if (routeVectorLayer) routeVectorLayer.changed();
 
       const mapContainer = document.getElementById("quest-map");
       if (mapContainer) {
@@ -2172,20 +2135,6 @@
       return `${(safe / 1000).toFixed(2).replace(/\.?0+$/, "")} км`;
     }
 
-    function syncRouteLineOnMap() {
-      if (!routeVectorSource || typeof ol === "undefined") return;
-      routeVectorSource.clear();
-
-      const chrono = getChronologicalFoundLocations();
-      if (chrono.length < 2) return;
-
-      const coords = chrono.map((loc) => ol.proj.fromLonLat([loc.lng, loc.lat]));
-      const lineFeature = new ol.Feature({
-        geometry: new ol.geom.LineString(coords)
-      });
-      routeVectorSource.addFeature(lineFeature);
-    }
-
     function clearMapMarkers() {
       if (!questMap) return;
       markersIndex.forEach((entry) => {
@@ -2203,7 +2152,6 @@
     function syncFoundPinsOnMap() {
       if (!questMap || typeof ol === "undefined") return;
       clearMapMarkers();
-      syncRouteLineOnMap();
 
       const foundLocations = getFoundLocationsInOrder();
       foundLocations.forEach((loc) => {
@@ -2262,10 +2210,7 @@
       const segLabel = document.getElementById("route-segments-label");
       if (distLabel && segLabel) {
         distLabel.textContent = `Дистанция прогулки: ${formatDistanceText(distMeters)}`;
-        segLabel.textContent =
-          foundCount >= 2
-            ? `Маршрут из ${foundCount} точек на карте`
-            : "Откройте 2-ю точку для построения линии маршрута";
+        segLabel.textContent = `Открыто ${foundCount} из ${total} локаций`;
       }
 
       listUl.innerHTML = "";
@@ -2360,6 +2305,275 @@
       }
     }
 
+    function drawVectorConiferTree(ctx, cx, cy, scale = 1, tint = "#2d6a4f") {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(scale, scale);
+
+      // Тень под деревом
+      ctx.fillStyle = "rgba(20, 20, 19, 0.08)";
+      ctx.beginPath();
+      ctx.ellipse(2, 11, 8, 3.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ствол карельской сосны
+      ctx.fillStyle = "#7c5836";
+      ctx.fillRect(-1.6, 4, 3.2, 7.5);
+
+      // Три яруса хвои
+      const tiers = [
+        { yTop: -14, yBot: -3, halfW: 6.5 },
+        { yTop: -8, yBot: 2, halfW: 9 },
+        { yTop: -2, yBot: 6.5, halfW: 11 }
+      ];
+      tiers.forEach((t, idx) => {
+        ctx.fillStyle = idx === 0 ? "#3b7a57" : tint;
+        ctx.beginPath();
+        ctx.moveTo(0, t.yTop);
+        ctx.lineTo(t.halfW, t.yBot);
+        ctx.lineTo(-t.halfW, t.yBot);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(0, t.yTop + 1);
+        ctx.lineTo(-t.halfW + 1.5, t.yBot - 0.5);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    function drawPineBranchOrnament(ctx, x, y, flipX = false) {
+      ctx.save();
+      ctx.translate(x, y);
+      if (flipX) ctx.scale(-1, 1);
+
+      // Основная ветвь
+      ctx.strokeStyle = "#5c4732";
+      ctx.lineWidth = 2.2;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(54, -8, 118, 12);
+      ctx.stroke();
+
+      // Боковой побег
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(38, -2);
+      ctx.quadraticCurveTo(64, -20, 92, -16);
+      ctx.stroke();
+
+      // Пучки длинной карельской хвои
+      ctx.strokeStyle = "#15803d";
+      ctx.lineWidth = 1.4;
+      const needleClusters = [
+        { bx: 18, by: -1, angles: [-0.8, -0.5, -0.2, 0.3, 0.6], len: 18 },
+        { bx: 44, by: -3, angles: [-0.9, -0.6, -0.25, 0.25, 0.55], len: 20 },
+        { bx: 72, by: 1, angles: [-0.75, -0.45, -0.15, 0.3, 0.65], len: 19 },
+        { bx: 98, by: 7, angles: [-0.6, -0.3, 0.0, 0.35, 0.7], len: 17 },
+        { bx: 66, by: -15, angles: [-0.9, -0.55, -0.2, 0.15], len: 15 },
+        { bx: 88, by: -16, angles: [-0.7, -0.35, 0.0, 0.3], len: 14 }
+      ];
+      needleClusters.forEach((cl) => {
+        cl.angles.forEach((ang) => {
+          ctx.beginPath();
+          ctx.moveTo(cl.bx, cl.by);
+          ctx.lineTo(cl.bx + Math.cos(ang) * cl.len, cl.by + Math.sin(ang) * cl.len);
+          ctx.stroke();
+        });
+      });
+
+      // Две векторные сосновые шишки
+      const cones = [
+        { cx: 52, cy: 8, rot: 0.35, rx: 6, ry: 9.5 },
+        { cx: 80, cy: 12, rot: 0.25, rx: 5, ry: 8 }
+      ];
+      cones.forEach((c) => {
+        ctx.save();
+        ctx.translate(c.cx, c.cy);
+        ctx.rotate(c.rot);
+        ctx.fillStyle = "#855834";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, c.rx, c.ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#5c3a1e";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        // Чешуйки шишки
+        ctx.beginPath();
+        ctx.moveTo(-c.rx + 1, -3);
+        ctx.lineTo(c.rx - 1, 2);
+        ctx.moveTo(-c.rx + 1, 2);
+        ctx.lineTo(c.rx - 1, 6);
+        ctx.moveTo(-c.rx + 1, 3);
+        ctx.lineTo(c.rx - 1, -2);
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      ctx.restore();
+    }
+
+    function drawResortCrestIllustration(ctx, cx, cy) {
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      // Внешний медальон эмблемы
+      ctx.fillStyle = "#f6f5f0";
+      ctx.beginPath();
+      ctx.arc(0, 0, 36, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#15803d";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 36, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.2)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, 31, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Солнечный диск за соснами
+      ctx.fillStyle = "rgba(194, 65, 12, 0.16)";
+      ctx.beginPath();
+      ctx.arc(0, -4, 15, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Три карельские сосны в медальоне
+      drawVectorConiferTree(ctx, -11, 4, 0.72, "#2d6a4f");
+      drawVectorConiferTree(ctx, 11, 4, 0.72, "#2d6a4f");
+      drawVectorConiferTree(ctx, 0, 2, 0.92, "#15803d");
+
+      // Волны озера Силандэ в нижней части герба
+      ctx.strokeStyle = "#2b6cb0";
+      ctx.lineWidth = 1.8;
+      ctx.lineCap = "round";
+      for (let wy = 16; wy <= 22; wy += 6) {
+        ctx.beginPath();
+        ctx.moveTo(-18, wy);
+        ctx.quadraticCurveTo(-9, wy - 3, 0, wy);
+        ctx.quadraticCurveTo(9, wy + 3, 18, wy);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function drawCompassRoseVector(ctx, cx, cy, radius) {
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      // Подложка компаса
+      ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+      ctx.beginPath();
+      ctx.arc(0, 0, radius + 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.22)";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      // Внутреннее кольцо с делениями
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.16)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.68, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Четыре основных луча звезды компаса (С, В, Ю, З)
+      for (let i = 0; i < 4; i++) {
+        ctx.save();
+        ctx.rotate((i * Math.PI) / 2);
+
+        // Темная половина луча
+        ctx.fillStyle = i === 0 ? "#c2410c" : "#141413";
+        ctx.beginPath();
+        ctx.moveTo(0, -radius);
+        ctx.lineTo(radius * 0.2, 0);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Светлая половина луча
+        ctx.fillStyle = i === 0 ? "#ea580c" : "#8a8884";
+        ctx.beginPath();
+        ctx.moveTo(0, -radius);
+        ctx.lineTo(-radius * 0.2, 0);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      // Буква С (Север)
+      ctx.fillStyle = "#141413";
+      ctx.font = "600 12px 'JetBrains Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("С", 0, -radius - 14);
+      ctx.fillStyle = "#575653";
+      ctx.font = "500 10px 'JetBrains Mono', monospace";
+      ctx.fillText("Ю", 0, radius + 14);
+      ctx.fillText("З", -radius - 13, 0);
+      ctx.fillText("В", radius + 13, 0);
+
+      ctx.restore();
+    }
+
+    function drawOfficialResortStamp(ctx, cx, cy) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(-0.12);
+
+      const R = 68;
+      ctx.fillStyle = "rgba(21, 128, 61, 0.06)";
+      ctx.beginPath();
+      ctx.arc(0, 0, R, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(21, 128, 61, 0.82)";
+      ctx.lineWidth = 2.8;
+      ctx.beginPath();
+      ctx.arc(0, 0, R, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(0, 0, R - 7, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Горизонтальные плашки внутри печати
+      ctx.beginPath();
+      ctx.moveTo(-R + 12, -18);
+      ctx.lineTo(R - 12, -18);
+      ctx.moveTo(-R + 12, 18);
+      ctx.lineTo(R - 12, 18);
+      ctx.stroke();
+
+      // Текст внутри штампа (строго внутри окружности без пересечений)
+      ctx.fillStyle = "#15803d";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "600 10px 'JetBrains Mono', monospace";
+      ctx.fillText("★ БАЗА ОТДЫХА ★", 0, -34);
+      ctx.fillText("МАРШРУТ ПРОЙДЕН", 0, 34);
+
+      ctx.font = "600 19px Inter, sans-serif";
+      ctx.fillText("СИЛАНДЭ", 0, -4);
+
+      ctx.font = "600 11px 'JetBrains Mono', monospace";
+      ctx.fillText("20 / 20 ТОЧЕК", 0, 11);
+
+      ctx.restore();
+    }
+
     function renderCompletionCertificateCanvas() {
       const canvas = document.getElementById("certificate-canvas");
       if (!canvas) return;
@@ -2371,151 +2585,489 @@
       const teamInput = document.getElementById("cert-team-input");
       const teamName = (teamInput && teamInput.value.trim()) || "Исследователи Силандэ";
 
-      // 1. Фон в стиле Warm Stone & Ink
-      ctx.fillStyle = "#f6f5f0";
+      // 1. Фон в стиле Warm Stone & Ink с тонкой бумажной текстурой
+      ctx.fillStyle = "#f4f1ea";
       ctx.fillRect(0, 0, W, H);
 
-      // Внутренний лист открытки
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(48, 48, W - 96, H - 96);
+      // Внутренний парадный лист сертификата
+      ctx.fillStyle = "#fbfaf7";
+      ctx.fillRect(36, 36, W - 72, H - 72);
 
-      ctx.strokeStyle = "rgba(20, 20, 19, 0.18)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(48, 48, W - 96, H - 96);
+      // Двойная архитектурная рамка с угловыми орнаментами
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.28)";
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(44, 44, W - 88, H - 88);
 
-      ctx.strokeStyle = "rgba(20, 20, 19, 0.08)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(64, 64, W - 128, H - 128);
+      ctx.strokeStyle = "rgba(21, 128, 61, 0.35)";
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(54, 54, W - 108, H - 108);
 
-      // 2. Текстовая шапка сертификата
+      // Декоративные уголки рамки
+      const corners = [
+        [44, 44, 1, 1],
+        [W - 44, 44, -1, 1],
+        [44, H - 44, 1, -1],
+        [W - 44, H - 44, -1, -1]
+      ];
+      ctx.strokeStyle = "#15803d";
+      ctx.lineWidth = 3;
+      corners.forEach(([cx, cy, sx, sy]) => {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy + sy * 28);
+        ctx.lineTo(cx, cy);
+        ctx.lineTo(cx + sx * 28, cy);
+        ctx.stroke();
+      });
+
+      // 2. Векторные иллюстрации сосновых ветвей и герба базы в шапке
+      drawPineBranchOrnament(ctx, 76, 86, false);
+      drawPineBranchOrnament(ctx, W - 76, 86, true);
+      drawResortCrestIllustration(ctx, W / 2, 102);
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+
       ctx.fillStyle = "#575653";
-      ctx.font = "400 24px Inter, sans-serif";
-      ctx.fillText("База отдыха «Силандэ» · Карельский перешеек", 96, 130);
+      ctx.font = "500 20px 'JetBrains Mono', monospace";
+      ctx.fillText("БАЗА ОТДЫХА «СИЛАНДЭ» · КАРЕЛЬСКИЙ ПЕРЕШЕЕК · 60.382°N 30.271°E", W / 2, 168);
 
       ctx.fillStyle = "#141413";
-      ctx.font = "500 50px Inter, sans-serif";
-      ctx.fillText("Сертификат прохождения", 96, 196);
+      ctx.font = "600 46px Inter, sans-serif";
+      ctx.fillText("Памятный сертификат исследователя", W / 2, 224);
 
-      // Имя семьи / команды
+      // Плашка с именем команды / семьи
       ctx.fillStyle = "#15803d";
-      ctx.font = "500 38px Inter, sans-serif";
-      ctx.fillText(teamName, 96, 260);
+      ctx.font = "600 34px Inter, sans-serif";
+      ctx.fillText(`Команда: ${teamName}`, W / 2, 274);
 
-      // Разделительная линия
-      ctx.strokeStyle = "rgba(20, 20, 19, 0.12)";
+      // Тонкий графический разделитель с ромбом
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.16)";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(96, 292);
-      ctx.lineTo(W - 96, 292);
+      ctx.moveTo(88, 298);
+      ctx.lineTo(W / 2 - 18, 298);
+      ctx.moveTo(W / 2 + 18, 298);
+      ctx.lineTo(W - 88, 298);
       ctx.stroke();
 
-      // 3. Картографическая схема открытых точек и маршрута
-      const mapX = 96;
-      const mapY = 324;
-      const mapW = W - 192;
-      const mapH = 620;
+      ctx.fillStyle = "#c2410c";
+      ctx.beginPath();
+      ctx.moveTo(W / 2, 291);
+      ctx.lineTo(W / 2 + 7, 298);
+      ctx.lineTo(W / 2, 305);
+      ctx.lineTo(W / 2 - 7, 298);
+      ctx.closePath();
+      ctx.fill();
 
-      ctx.fillStyle = "#efece6";
+      // 3. Подробная топографическая и архитектурная карта базы отдыха «Силандэ»
+      const mapX = 88;
+      const mapY = 320;
+      const mapW = W - 176;
+      const mapH = 660;
+
+      // Подложка лесного массива и рельефа
+      ctx.fillStyle = "#ede9df";
       ctx.fillRect(mapX, mapY, mapW, mapH);
-      ctx.strokeStyle = "rgba(20, 20, 19, 0.15)";
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(mapX, mapY, mapW, mapH);
 
-      // Рисуем контур озера Силандэ в юго-западном углу мини-карты
       ctx.save();
       ctx.beginPath();
       ctx.rect(mapX, mapY, mapW, mapH);
       ctx.clip();
 
-      ctx.fillStyle = "#d5e4ea";
+      // Зоны хвойного леса (мягкие природные полигоны)
+      const forestPolygons = [
+        // Северный сосновый бор
+        [
+          [mapX, mapY],
+          [mapX + mapW, mapY],
+          [mapX + mapW, mapY + mapH * 0.42],
+          [mapX + mapW * 0.58, mapY + mapH * 0.36],
+          [mapX + mapW * 0.25, mapY + mapH * 0.44],
+          [mapX, mapY + mapH * 0.32]
+        ],
+        // Восточный лесной массив
+        [
+          [mapX + mapW * 0.64, mapY + mapH * 0.35],
+          [mapX + mapW, mapY + mapH * 0.38],
+          [mapX + mapW, mapY + mapH],
+          [mapX + mapW * 0.54, mapY + mapH],
+          [mapX + mapW * 0.58, mapY + mapH * 0.65]
+        ]
+      ];
+      ctx.fillStyle = "#e1e7da";
+      forestPolygons.forEach((poly) => {
+        ctx.beginPath();
+        poly.forEach(([px, py], idx) => (idx === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)));
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      // Горизонтали рельефа (топографические изолинии высот)
+      ctx.strokeStyle = "rgba(110, 102, 88, 0.22)";
+      ctx.lineWidth = 1.2;
+      const contourCurves = [
+        { yStart: 0.14, cp1y: 0.22, cp2y: 0.08, yEnd: 0.18 },
+        { yStart: 0.28, cp1y: 0.36, cp2y: 0.20, yEnd: 0.31 },
+        { yStart: 0.46, cp1y: 0.54, cp2y: 0.38, yEnd: 0.49 },
+        { yStart: 0.64, cp1y: 0.72, cp2y: 0.56, yEnd: 0.68 },
+        { yStart: 0.82, cp1y: 0.88, cp2y: 0.74, yEnd: 0.84 }
+      ];
+      contourCurves.forEach((c) => {
+        ctx.beginPath();
+        ctx.moveTo(mapX, mapY + mapH * c.yStart);
+        ctx.bezierCurveTo(
+          mapX + mapW * 0.33,
+          mapY + mapH * c.cp1y,
+          mapX + mapW * 0.66,
+          mapY + mapH * c.cp2y,
+          mapX + mapW,
+          mapY + mapH * c.yEnd
+        );
+        ctx.stroke();
+      });
+
+      // Песчаный берег и пляжная полоса вдоль озера Силандэ (запад и юго-запад)
+      ctx.fillStyle = "#e7dec8";
       ctx.beginPath();
-      ctx.moveTo(mapX, mapY + mapH * 0.45);
+      ctx.moveTo(mapX, mapY + mapH * 0.34);
       ctx.bezierCurveTo(
-        mapX + mapW * 0.22, mapY + mapH * 0.48,
-        mapX + mapW * 0.30, mapY + mapH * 0.72,
-        mapX + mapW * 0.25, mapY + mapH
+        mapX + mapW * 0.14,
+        mapY + mapH * 0.44,
+        mapX + mapW * 0.25,
+        mapY + mapH * 0.66,
+        mapX + mapW * 0.35,
+        mapY + mapH
       );
       ctx.lineTo(mapX, mapY + mapH);
       ctx.closePath();
       ctx.fill();
 
-      // Координатная сетка на мини-карте
-      ctx.strokeStyle = "rgba(20, 20, 19, 0.05)";
+      // Озеро Силандэ: 3 уровня батиметрии (глубины воды)
+      const lakeLayers = [
+        { color: "#cbe0ea", scale: 1.0 },
+        { color: "#b5d2e0", scale: 0.82 },
+        { color: "#9dc2d4", scale: 0.62 }
+      ];
+      lakeLayers.forEach((layer, idx) => {
+        ctx.fillStyle = layer.color;
+        ctx.beginPath();
+        ctx.moveTo(mapX, mapY + mapH * (0.38 + (1 - layer.scale) * 0.18));
+        ctx.bezierCurveTo(
+          mapX + mapW * 0.11 * layer.scale,
+          mapY + mapH * 0.48,
+          mapX + mapW * 0.21 * layer.scale,
+          mapY + mapH * 0.70,
+          mapX + mapW * 0.30 * layer.scale,
+          mapY + mapH
+        );
+        ctx.lineTo(mapX, mapY + mapH);
+        ctx.closePath();
+        ctx.fill();
+
+        if (idx === 0) {
+          ctx.strokeStyle = "#6c9bb0";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      });
+
+      // Векторная иллюстрация парусной лодки на озере Силандэ
+      ctx.save();
+      ctx.translate(mapX + 58, mapY + mapH * 0.63);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.moveTo(0, -18);
+      ctx.lineTo(11, 0);
+      ctx.lineTo(0, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#e2e8f0";
+      ctx.beginPath();
+      ctx.moveTo(-2, -14);
+      ctx.lineTo(-9, 0);
+      ctx.lineTo(-2, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#7c5836";
+      ctx.beginPath();
+      ctx.moveTo(-12, 2);
+      ctx.lineTo(13, 2);
+      ctx.lineTo(9, 7);
+      ctx.lineTo(-8, 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Векторная рябь на воде у берега озера Силандэ
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.lineWidth = 1.5;
+      const waterRipples = [
+        [mapX + 36, mapY + mapH * 0.54],
+        [mapX + 52, mapY + mapH * 0.72],
+        [mapX + 44, mapY + mapH * 0.90],
+        [mapX + 128, mapY + mapH * 0.94]
+      ];
+      waterRipples.forEach(([rx, ry]) => {
+        ctx.beginPath();
+        ctx.moveTo(rx - 16, ry);
+        ctx.quadraticCurveTo(rx - 8, ry - 3, rx, ry);
+        ctx.quadraticCurveTo(rx + 8, ry + 3, rx + 16, ry);
+        ctx.stroke();
+      });
+
+      // Гидрографическая подпись озера (в свободной глубоководной части)
+      ctx.save();
+      ctx.translate(mapX + 78, mapY + mapH * 0.82);
+      ctx.rotate(0.46);
+      ctx.fillStyle = "#24526b";
+      ctx.font = "600 16px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("ОЗЕРО СИЛАНДЭ", 0, 0);
+      ctx.font = "400 11px 'JetBrains Mono', monospace";
+      ctx.fillText("глубина до 14 м", 0, 16);
+      ctx.restore();
+
+      // Проекция координат локаций на подробную карту
+      const lats = QUEST_LOCATIONS.map((l) => l.lat);
+      const lngs = QUEST_LOCATIONS.map((l) => l.lng);
+      const minLat = Math.min(...lats) - 0.00042;
+      const maxLat = Math.max(...lats) + 0.00042;
+      const minLng = Math.min(...lngs) - 0.00060;
+      const maxLng = Math.max(...lngs) + 0.00060;
+
+      const projectPoint = (loc) => {
+        const nx = (loc.lng - minLng) / (maxLng - minLng);
+        const ny = 1 - (loc.lat - minLat) / (maxLat - minLat);
+        return {
+          x: mapX + 52 + nx * (mapW - 104),
+          y: mapY + 52 + ny * (mapH - 104)
+        };
+      };
+
+      const projectedById = new Map();
+      QUEST_LOCATIONS.forEach((loc) => {
+        projectedById.set(loc.id, projectPoint(loc));
+      });
+
+      // Естественные парковые аллеи и лесные дорожки территории (НЕ соединяющие точки пунктиром!)
+      ctx.strokeStyle = "#d8d0c1";
+      ctx.lineWidth = 7;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      const p01 = projectedById.get("point_01");
+      const p02 = projectedById.get("point_02");
+      const p06 = projectedById.get("point_06");
+      const p08 = projectedById.get("point_08");
+      const p10 = projectedById.get("point_10");
+      const p17 = projectedById.get("point_17");
+      const p18 = projectedById.get("point_18");
+      const p20 = projectedById.get("point_20");
+
+      const drawParkWalkway = (pts) => {
+        ctx.beginPath();
+        pts.forEach((p, idx) => (idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+        ctx.stroke();
+      };
+
+      // Главная подъездная аллея и променады парка (сплошные мягкие дорожки парка)
+      drawParkWalkway([
+        { x: mapX + mapW, y: p20.y - 6 },
+        p20,
+        p01,
+        p06,
+        p08,
+        p02
+      ]);
+      drawParkWalkway([p01, p10, p18]);
+      drawParkWalkway([p08, { x: p17.x + 28, y: p17.y - 24 }, p17]);
+
+      // Деревянные пирсы и причалы у воды (у точек 02, 05, 17)
+      const piers = [
+        { pt: projectedById.get("point_02"), dx: -34, dy: 18 },
+        { pt: projectedById.get("point_05"), dx: -28, dy: 16 },
+        { pt: projectedById.get("point_17"), dx: -30, dy: 18 }
+      ];
+      piers.forEach(({ pt, dx, dy }) => {
+        if (!pt) return;
+        ctx.strokeStyle = "#8c6239";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y);
+        ctx.lineTo(pt.x + dx, pt.y + dy);
+        ctx.stroke();
+
+        ctx.strokeStyle = "#d9c2a3";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(pt.x, pt.y);
+        ctx.lineTo(pt.x + dx, pt.y + dy);
+        ctx.stroke();
+      });
+
+      // Архитектурные контуры корпусов, коттеджей и беседок базы «Силандэ»
+      const buildings = [
+        { pt: p01, w: 34, h: 20, angle: -0.15 }, // Главный корпус
+        { pt: p06, w: 30, h: 18, angle: 0.1 },   // Клуб-столовая
+        { pt: p08, w: 24, h: 16, angle: -0.25 }, // Банный комплекс
+        { pt: p10, w: 32, h: 16, angle: 0.05 },  // Спальный корпус №1
+        { pt: projectedById.get("point_11"), w: 22, h: 14, angle: 0.2 }, // Корпус №6
+        { pt: projectedById.get("point_04"), w: 26, h: 15, angle: 0.0 }
+      ];
+      buildings.forEach((b) => {
+        if (!b.pt) return;
+        ctx.save();
+        ctx.translate(b.pt.x + 18, b.pt.y - 16);
+        ctx.rotate(b.angle);
+        ctx.fillStyle = "rgba(20, 20, 19, 0.12)";
+        ctx.fillRect(-b.w / 2 + 2, -b.h / 2 + 2, b.w, b.h);
+        ctx.fillStyle = "#d5c3ad";
+        ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+        ctx.strokeStyle = "#7d6b57";
+        ctx.lineWidth = 1.4;
+        ctx.strokeRect(-b.w / 2, -b.h / 2, b.w, b.h);
+        ctx.restore();
+      });
+
+      // Тонкая координатная сетка поверх карты
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.055)";
       ctx.lineWidth = 1;
-      for (let gx = 1; gx < 6; gx++) {
-        const x = mapX + (mapW / 6) * gx;
+      for (let gx = 1; gx < 8; gx++) {
+        const x = mapX + (mapW / 8) * gx;
         ctx.beginPath();
         ctx.moveTo(x, mapY);
         ctx.lineTo(x, mapY + mapH);
         ctx.stroke();
       }
-      for (let gy = 1; gy < 5; gy++) {
-        const y = mapY + (mapH / 5) * gy;
+      for (let gy = 1; gy < 6; gy++) {
+        const y = mapY + (mapH / 6) * gy;
         ctx.beginPath();
         ctx.moveTo(mapX, y);
         ctx.lineTo(mapX + mapW, y);
         ctx.stroke();
       }
 
-      // Нормализация координат точек для отрисовки на карте сертификата
-      const lats = QUEST_LOCATIONS.map((l) => l.lat);
-      const lngs = QUEST_LOCATIONS.map((l) => l.lng);
-      const minLat = Math.min(...lats) - 0.00045;
-      const maxLat = Math.max(...lats) + 0.00045;
-      const minLng = Math.min(...lngs) - 0.00065;
-      const maxLng = Math.max(...lngs) + 0.00065;
-
-      const projectPoint = (loc) => {
-        const nx = (loc.lng - minLng) / (maxLng - minLng);
-        const ny = 1 - (loc.lat - minLat) / (maxLat - minLat);
-        return {
-          x: mapX + 44 + nx * (mapW - 88),
-          y: mapY + 44 + ny * (mapH - 88)
-        };
-      };
-
-      const chrono = getChronologicalFoundLocations();
-      const routePoints = (chrono.length > 0 ? chrono : QUEST_LOCATIONS).map(projectPoint);
-
-      // Пунктирная линия маршрута на сертификате
-      if (routePoints.length >= 2) {
-        ctx.strokeStyle = "#15803d";
-        ctx.lineWidth = 3.5;
-        ctx.setLineDash([10, 8]);
-        ctx.beginPath();
-        ctx.moveTo(routePoints[0].x, routePoints[0].y);
-        for (let i = 1; i < routePoints.length; i++) {
-          ctx.lineTo(routePoints[i].x, routePoints[i].y);
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      // Отрисовка всех 20 точек с номерами
-      const pointsToDraw = chrono.length > 0 ? chrono : QUEST_LOCATIONS;
-      pointsToDraw.forEach((loc) => {
-        const pt = projectPoint(loc);
-        ctx.fillStyle = "#15803d";
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, 17, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "#ffffff";
-        ctx.stroke();
-
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "500 13px 'JetBrains Mono', monospace";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(String(loc.number).padStart(2, "0"), pt.x, pt.y + 1);
+      // Векторные деревья карельского соснового бора по территории карты
+      const treePlacements = [
+        [0.12, 0.12, 1.0], [0.18, 0.18, 0.85], [0.26, 0.10, 1.1], [0.35, 0.14, 0.9],
+        [0.48, 0.09, 1.05], [0.62, 0.13, 0.95], [0.74, 0.11, 1.1], [0.84, 0.18, 0.9],
+        [0.16, 0.30, 0.9], [0.29, 0.28, 1.0], [0.54, 0.25, 0.88], [0.78, 0.29, 1.05],
+        [0.88, 0.34, 0.92], [0.42, 0.42, 0.85], [0.72, 0.48, 1.0], [0.85, 0.54, 0.95],
+        [0.64, 0.68, 0.9], [0.78, 0.72, 1.08], [0.88, 0.80, 0.9], [0.56, 0.86, 0.95],
+        [0.68, 0.88, 1.0], [0.82, 0.90, 0.88]
+      ];
+      treePlacements.forEach(([nx, ny, sc]) => {
+        drawVectorConiferTree(ctx, mapX + mapW * nx, mapY + mapH * ny, sc, "#2d6a4f");
       });
 
-      ctx.restore();
+      // Подписи парковых зон на карте
+      ctx.fillStyle = "rgba(45, 74, 56, 0.62)";
+      ctx.font = "600 13px 'JetBrains Mono', monospace";
+      ctx.textAlign = "left";
+      ctx.fillText("СОСНОВЫЙ БОР", mapX + 28, mapY + 34);
+      ctx.fillText("СЕМЕЙНАЯ ЗОНА", mapX + mapW * 0.34, mapY + mapH * 0.38);
+      ctx.fillText("ЦЕНТРАЛЬНАЯ УСАДЬБА", mapX + mapW * 0.56, mapY + mapH * 0.56);
+      ctx.fillText("АКТИВНЫЙ ОТДЫХ", mapX + mapW * 0.64, mapY + mapH * 0.78);
+
+      // Отрисовка всех 20 точек с номерами (БЕЗ соединяющих пунктирных линий)
+      QUEST_LOCATIONS.forEach((loc) => {
+        const pt = projectedById.get(loc.id);
+        if (!pt) return;
+
+        // Мягкая тень маркера
+        ctx.fillStyle = "rgba(20, 20, 19, 0.22)";
+        ctx.beginPath();
+        ctx.arc(pt.x + 1.5, pt.y + 2.5, 16, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Внешний белый кант
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 16, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Изумрудный центр маркера
+        ctx.fillStyle = "#15803d";
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 13, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Номер точки 01..20
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "600 12px 'JetBrains Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(loc.number).padStart(2, "0"), pt.x, pt.y + 0.5);
+      });
+
+      // Подписи ключевых ориентиров поверх точек (выверены без перекрытий с маркерами)
+      const landmarkLabels = [
+        { id: "point_01", text: "Ресепшен", dx: -38, dy: -26 },
+        { id: "point_02", text: "Пирс и лодки", dx: 22, dy: 4 },
+        { id: "point_08", text: "Банный дворик", dx: 22, dy: 14 },
+        { id: "point_10", text: "Корпус №1", dx: 22, dy: -10 },
+        { id: "point_17", text: "Рыбацкая бухта", dx: 22, dy: 4 },
+        { id: "point_18", text: "Вековые сосны", dx: 22, dy: -8 },
+        { id: "point_20", text: "Главный въезд", dx: -46, dy: -26 }
+      ];
+      landmarkLabels.forEach((lbl) => {
+        const pt = projectedById.get(lbl.id);
+        if (!pt) return;
+        ctx.font = "500 12px Inter, sans-serif";
+        const tw = ctx.measureText(lbl.text).width;
+        const bx = pt.x + lbl.dx;
+        const by = pt.y + lbl.dy - 9;
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+        ctx.fillRect(bx - 5, by, tw + 10, 18);
+        ctx.strokeStyle = "rgba(20, 20, 19, 0.2)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx - 5, by, tw + 10, 18);
+
+        ctx.fillStyle = "#141413";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillText(lbl.text, bx, by + 9);
+      });
+
+      // Векторная роза ветров (компас) в правом верхнем углу карты
+      drawCompassRoseVector(ctx, mapX + mapW - 58, mapY + 58, 24);
+
+      // Масштабная линейка в правом нижнем углу карты
+      const scaleX = mapX + mapW - 210;
+      const scaleY = mapY + mapH - 42;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+      ctx.fillRect(scaleX, scaleY, 186, 28);
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.22)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(scaleX, scaleY, 186, 28);
+
+      ctx.fillStyle = "#141413";
+      ctx.fillRect(scaleX + 14, scaleY + 16, 40, 5);
+      ctx.strokeStyle = "#141413";
+      ctx.strokeRect(scaleX + 54, scaleY + 16, 40, 5);
+      ctx.fillRect(scaleX + 94, scaleY + 16, 40, 5);
+
+      ctx.font = "500 10px 'JetBrains Mono', monospace";
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
+      ctx.fillText("0", scaleX + 12, scaleY + 12);
+      ctx.fillText("75 м", scaleX + 46, scaleY + 12);
+      ctx.fillText("150 м", scaleX + 118, scaleY + 12);
+
+      ctx.restore();
+
+      // Двойная картографическая рамка вокруг карты с координатными засечками
+      ctx.strokeStyle = "#141413";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(mapX, mapY, mapW, mapH);
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.25)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(mapX - 5, mapY - 5, mapW + 10, mapH + 10);
 
       // 4. Блок итоговой статистики внизу сертификата
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
       const totalDistText = formatDistanceText(
         calculateTotalRouteDistanceMeters() || 2350
       );
@@ -2525,34 +3077,37 @@
         year: "numeric"
       }).format(new Date());
 
-      const footerY = 1015;
+      const footerY = 1026;
       ctx.fillStyle = "#575653";
-      ctx.font = "400 22px Inter, sans-serif";
-      ctx.fillText("Открыто локаций", 96, footerY);
-      ctx.fillText("Дистанция маршрута", 410, footerY);
-      ctx.fillText("Дата прохождения", 730, footerY);
+      ctx.font = "400 20px Inter, sans-serif";
+      ctx.fillText("Открыто локаций", 88, footerY);
+      ctx.fillText("Дистанция прогулки", 400, footerY);
+      ctx.fillText("Дата прохождения", 720, footerY);
 
       ctx.fillStyle = "#141413";
-      ctx.font = "500 34px 'JetBrains Mono', monospace";
-      ctx.fillText(`${foundIds.length || 20} / 20`, 96, footerY + 48);
-      ctx.fillText(totalDistText, 410, footerY + 48);
-      ctx.font = "500 28px Inter, sans-serif";
-      ctx.fillText(dateStr, 730, footerY + 46);
+      ctx.font = "600 32px 'JetBrains Mono', monospace";
+      ctx.fillText(`${foundIds.length || 20} / 20`, 88, footerY + 42);
+      ctx.fillText(totalDistText, 400, footerY + 42);
+      ctx.font = "600 26px Inter, sans-serif";
+      ctx.fillText(dateStr, 720, footerY + 40);
 
-      // Плашка промокода внизу открытки
-      ctx.fillStyle = "#f6f5f0";
-      ctx.fillRect(96, 1115, W - 192, 128);
-      ctx.strokeStyle = "rgba(20, 20, 19, 0.16)";
+      // 5. Купон призового промокода и официальная круглая печать базы «Силандэ»
+      ctx.fillStyle = "#f2efe8";
+      ctx.fillRect(88, 1110, W - 176, 148);
+      ctx.strokeStyle = "rgba(20, 20, 19, 0.22)";
       ctx.lineWidth = 1.5;
-      ctx.strokeRect(96, 1115, W - 192, 128);
+      ctx.strokeRect(88, 1110, W - 176, 148);
 
       ctx.fillStyle = "#575653";
-      ctx.font = "400 22px Inter, sans-serif";
-      ctx.fillText("Призовой промокод на ресепшен:", 128, 1168);
+      ctx.font = "400 21px Inter, sans-serif";
+      ctx.fillText("Призовой промокод на ресепшен базы отдыха «Силандэ»:", 120, 1162);
 
       ctx.fillStyle = "#141413";
-      ctx.font = "500 40px 'JetBrains Mono', monospace";
-      ctx.fillText(PROMO_CODE, 128, 1218);
+      ctx.font = "600 44px 'JetBrains Mono', monospace";
+      ctx.fillText(PROMO_CODE, 120, 1222);
+
+      // Векторный штамп-печать о прохождении маршрута
+      drawOfficialResortStamp(ctx, W - 205, 1184);
     }
 
     function downloadCertificatePng() {
