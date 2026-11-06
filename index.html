@@ -1135,14 +1135,22 @@
     }
 
     .promo-box {
-      padding: 16px;
+      padding: 14px 16px;
       border-radius: var(--radius-card);
       background: var(--bg-canvas);
       border: 1px solid var(--border-strong);
       margin-bottom: 16px;
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .promo-box-info {
+      display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
     }
 
     .promo-box-label {
@@ -1153,11 +1161,20 @@
 
     .promo-box-code {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 500;
       color: var(--text-primary);
       user-select: all;
       font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+
+    .promo-inline-copy-btn {
+      height: 36px;
+      padding: 0 12px;
+      font-size: 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .modal-btn-stack {
@@ -1770,8 +1787,11 @@
         </p>
 
         <div class="promo-box">
-          <span class="promo-box-label">Призовой промокод</span>
-          <strong id="promo-code-text" class="promo-box-code">FAMILY2026</strong>
+          <div class="promo-box-info">
+            <span class="promo-box-label">Призовой промокод</span>
+            <strong id="promo-code-text" class="promo-box-code">FAMILY2026</strong>
+          </div>
+          <button id="btn-copy-promo-inline" class="btn-primary promo-inline-copy-btn" type="button">Скопировать промокод</button>
         </div>
 
         <div class="cert-builder-box">
@@ -3525,14 +3545,17 @@
       document.getElementById("btn-download-certificate").addEventListener("click", downloadCertificatePng);
       document.getElementById("btn-share-certificate").addEventListener("click", shareCertificateImage);
 
-      document.getElementById("btn-copy-promo").addEventListener("click", (e) => {
+      const handleCopyPromoClick = (e) => {
         navigator.clipboard.writeText(PROMO_CODE);
         const btn = e.currentTarget;
         btn.textContent = "Промокод скопирован";
         setTimeout(() => {
           btn.textContent = "Скопировать промокод";
         }, 2200);
-      });
+      };
+
+      document.getElementById("btn-copy-promo").addEventListener("click", handleCopyPromoClick);
+      document.getElementById("btn-copy-promo-inline").addEventListener("click", handleCopyPromoClick);
 
       document.getElementById("secret-reset-trigger").addEventListener("click", handleSecretResetTap);
       document.getElementById("btn-confirm-reset").addEventListener("click", clearAllProgress);
