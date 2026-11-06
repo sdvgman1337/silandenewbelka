@@ -82,7 +82,7 @@
       top: 0;
       left: 0;
       right: 0;
-      z-index: 400;
+      z-index: 1005;
       pointer-events: none;
       padding: 16px;
     }
@@ -911,7 +911,7 @@
     .modal-overlay {
       position: fixed;
       inset: 0;
-      z-index: 1000;
+      z-index: 1020;
       background: rgba(20, 20, 19, 0.48);
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
@@ -920,6 +920,10 @@
       justify-content: center;
       padding: 16px;
       animation: overlayFadeIn 0.2s var(--ease-out) both;
+    }
+
+    #onboarding-modal {
+      z-index: 1000;
     }
 
     .modal-dialog-card {
@@ -1162,11 +1166,11 @@
     <!-- Верхние плавающие контролы поверх полноширинной карты (без заголовка и подзаголовка) -->
     <header class="top-bar-wrapper">
       <div class="top-bar">
-        <button id="secret-reset-trigger" class="brand-mark" type="button" aria-label="Меню маршрута">
+        <button id="secret-reset-trigger" class="brand-mark" type="button" aria-label="Справка и правила квеста" title="Справка по квесту">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
-            <line x1="9" y1="3" x2="9" y2="18"></line>
-            <line x1="15" y1="6" x2="15" y2="21"></line>
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
         </button>
 
@@ -1918,8 +1922,12 @@
 
       if (secretTapTimestamps.length >= SECRET_TAP_COUNT_REQUIRED) {
         secretTapTimestamps = [];
+        document.getElementById("onboarding-modal").classList.add("hidden");
         document.getElementById("reset-modal").classList.remove("hidden");
+        return;
       }
+
+      document.getElementById("onboarding-modal").classList.remove("hidden");
     }
 
     function attachUIEvents() {
